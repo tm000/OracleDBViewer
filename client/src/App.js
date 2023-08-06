@@ -1,11 +1,9 @@
-import logo from './logo.svg';
 import './App.css';
 import { DataGrid } from '@mui/x-data-grid';
 import React, { useState, useRef, useEffect } from "react";
 import { FormControl, TextField, Button, InputLabel, Select, MenuItem } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import MyTreeView from './MyTreeView';
-import IconExpansionTreeView from './IconExpansionTreeView';
 import { convertQuickFilterV7ToLegacy } from '@mui/x-data-grid/internals';
 
 function App(props) {
@@ -20,9 +18,7 @@ function App(props) {
       // load schemas in localStorge
       setSchemas(JSON.parse(localStorage.schemas));
     } else {
-      setSchemas([
-        {name:'orcl', userId: 'tm', password: 'password', dbname: 'orcl', tables: [{name: 'emp'}, {name: 'dept'}]}, 
-        {name:'scott', userId: 'scott', password: 'tiger', dbname: 'pdb', tables: [{name: 'salary'}]}]);
+      setSchemas([]);
     }
   }, []);
 

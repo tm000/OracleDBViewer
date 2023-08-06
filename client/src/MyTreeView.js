@@ -109,7 +109,6 @@ StyledTreeItem.propTypes = {
 const ITEM_HEIGHT = 48;
 
 export default function MyTreeView(props) {
-  // const [schemas, setSchemas] = React.useState([]);
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [menuItems, setMenuItems] = React.useState([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -163,7 +162,7 @@ export default function MyTreeView(props) {
         return;
       }
       resjson['body'].forEach(data => {
-        schema.tables.push(data[0]);
+        schema.tables.push({name: data[0]});
       });
     } catch (e) {
       console.error(e);
