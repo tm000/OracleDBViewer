@@ -44,7 +44,7 @@ EXEC SQL END DECLARE SECTION;
 #if defined(__STDC__)
   void sql_error(OutputWriter&);
   int oracle_connect(void);
-  SQLDA** alloc_descriptors(int, int, int);
+  SQLDA** alloc_descriptors(OutputWriter&, int, int, int);
   int get_dyn_statement(const char*, char*[]);
   int set_bind_variables(OutputWriter&, char**, SQLDA*, SQLDA*);
   int process_select_list(OutputWriter&, char**, SQLDA*, SQLDA*);
@@ -52,7 +52,7 @@ EXEC SQL END DECLARE SECTION;
 #else
   void sql_error(/*_ OutputWriter& _*/);
   int oracle_connect(/*_ void _*/);
-  SQLDA** alloc_descriptors(/*_ int, int, int _*/);
+  SQLDA** alloc_descriptors(/*_ OutputWriter&, int, int, int _*/);
   int get_dyn_statement(/* const char*, char*[]) _*/);
   int set_bind_variables(/*_ OutputWriter&, char**, SQLDA*, SQLDA* -*/);
   int process_select_list(/*_ OutputWriter&, char**, SQLDA*, SQLDA* _*/);
@@ -116,7 +116,7 @@ prepare_error:
     }
 
     /* Allocate memory for the select and bind descriptors. */
-    SQLDA **desc = alloc_descriptors(MAX_ITEMS, MAX_VNAME_LEN, MAX_INAME_LEN);
+    SQLDA **desc = alloc_descriptors(writer, MAX_ITEMS, MAX_VNAME_LEN, MAX_INAME_LEN);
     SQLDA *bind_dp = desc[0];
     SQLDA *select_dp = desc[1];
     if (bind_dp == (SQLDA*)0 || select_dp == (SQLDA*)0) 
@@ -206,7 +206,7 @@ sql_error:
 
 }
 
-SQLDA** alloc_descriptors(int size, int max_vname_len, int max_iname_len)
+SQLDA** alloc_descriptors(OutputWriter& writer, int size, int max_vname_len, int max_iname_len)
 {
     int i;
 
@@ -240,6 +240,7 @@ SQLDA** alloc_descriptors(int size, int max_vname_len, int max_iname_len)
     {
         fprintf(stderr,
             "Cannot allocate memory for bind descriptor.");
+        writer.error("Cannot allocate memory for select descriptor.");
         return ret;
     }
 
@@ -249,6 +250,7 @@ SQLDA** alloc_descriptors(int size, int max_vname_len, int max_iname_len)
     {
         fprintf(stderr,
             "Cannot allocate memory for select descriptor.");
+        writer.error("Cannot allocate memory for select descriptor.");
         return ret;
     }
     select_dp->N = size;
@@ -302,11 +304,9 @@ int set_bind_variables(OutputWriter& writer, char *bindvars[], SQLDA* bind_dp, S
        than originally allocated by SQLSQLDAAlloc(). */
     if (bind_dp->F < 0)
     {
-        printf ("\nToo many bind variables (%d), maximum is %d\n.",
+        fprintf(stderr,"\nToo many bind variables (%d), maximum is %d\n.",
                     -bind_dp->F, MAX_ITEMS);
-        char buf[100];
-        sprintf(buf, "Too many bind variables (%d), maximum is %d.", -bind_dp->F, MAX_ITEMS);
-        writer.error(buf);
+        writer.error("Too many bind variables (%d), maximum is %d.", -bind_dp->F, MAX_ITEMS);
         return -1;
     }
 
@@ -411,12 +411,10 @@ sql_error:
        items than originally allocated by SQLSQLDAAlloc(). */
     if (select_dp->F < 0)
     {
-        printf ("\nToo many select-list items (%d), maximum is %d\n",
+        fprintf(stderr, "\nToo many select-list items (%d), maximum is %d\n",
                 -(select_dp->F), MAX_ITEMS);
-        char buf[100];
-        sprintf(buf, "Too many select-list items (%d), maximum is %d",
+        writer.error("Too many select-list items (%d), maximum is %d",
                 -(select_dp->F), MAX_ITEMS);
-        writer.error(buf);
         return -1;
     }
 
@@ -587,44 +585,60 @@ end_select_loop:
 void sql_error(OutputWriter& writer)
 {
     /* ORACLE error handler */
-    printf ("\n\n%.100s\n",sqlca.sqlerrm.sqlerrmc);
+    fprintf(stderr, "\n\n%.100s\n",sqlca.sqlerrm.sqlerrmc);
     writer.error(sqlca.sqlerrm.sqlerrmc);
     if (parse_flag) {
-        printf("Parse error at character offset %d in SQL statement.\n",
+        fprintf(stderr, "Parse error at character offset %d in SQL statement.\n",
             sqlca.sqlerrd[4]);
-        char buf[100];
-        sprintf(buf, "Parse error at character offset %d in SQL statement.",
-            sqlca.sqlerrd[4]);
-        writer.error(buf);
+        writer.error("Parse error at character offset %d in SQL statement.", sqlca.sqlerrd[4]);
     }
 
     EXEC SQL WHENEVER SQLERROR CONTINUE;
     EXEC SQL ROLLBACK WORK;
 }
 
+struct connection {
+    char* uname;
+    char* pswd;
+    char* dbname;
+};
+
 class DBBase
 {
 private:
-    FILE* sout;
-    bool isDBOpen;
+    bool isDBOpen = false;
+    struct connection current;
 public:
-    DBBase(FILE* out) {
-        sout = out;
-        isDBOpen = false;
+    DBBase() {
     }
     virtual ~DBBase() {
         if (DBBase::isDBOpen) {
             EXEC SQL COMMIT WORK RELEASE;
         }
+        free(current.uname);
+        free(current.pswd);
+        free(current.dbname);
     }
 
     int connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
     {
-        if (isDBOpen) return 0;
+        if (isDBOpen) {
+            if (strcmp(uname, current.uname) == 0 && strcmp(pswd, current.pswd) == 0 && strcmp(dbname, current.dbname) == 0) return 0;
+            disconnect();
+        }
 
         if (connect_open(writer, uname, pswd, dbname) == 0) {
             isDBOpen = true;
-            fprintf(sout, "\nConnected to ORACLE as user: %s\n", username.arr);
+            free(current.uname);
+            free(current.pswd);
+            free(current.dbname);
+            current.uname = (char*)malloc(strlen(uname));
+            current.pswd = (char*)malloc(strlen(pswd));
+            current.dbname = (char*)malloc(strlen(dbname));
+            strcpy(current.uname, uname);
+            strcpy(current.pswd, pswd);
+            strcpy(current.dbname, dbname);
+            printf("\nConnected to ORACLE as user: %s\n", username.arr);
         }
 
 sql_error:
@@ -656,7 +670,8 @@ sql_error:
             case ':':
                 char** tmp = (char**)realloc(bindvars, sizeof(char*)*(++cnt));
                 if (tmp == nullptr) {
-                    fprintf(sout, "\nMemory allocation error\n\n");
+                    fprintf(stderr, "\nMemory allocation error\n");
+                    writer.error("Memory allocation error");
                     return -1;
                 } else {
                     bindvars = tmp;

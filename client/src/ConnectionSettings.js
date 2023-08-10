@@ -16,22 +16,22 @@ const Mode = {
 };
 export {Mode};
 export default function ConnectionSettings(props) {
-  const [mode, setMode] = React.useState(props.mode);
-  const [name, setName] = React.useState(props.name);
-  const [userId, setUserId] = React.useState(props.userId);
-  const [password, setPassword] = React.useState(props.password);
-  const [dbname, setDbname] = React.useState(props.dbname);
+  const [mode, setMode] = React.useState(null);
+  const [name, setName] = React.useState(null);
+  const [userid, setUserId] = React.useState(null);
+  const [password, setPassword] = React.useState(null);
+  const [dbname, setDbname] = React.useState(null);
   const [nameerr, setNameErr] = React.useState(false);
-  const [userIderr, setUserIdErr] = React.useState(false);
+  const [useriderr, setUserIdErr] = React.useState(false);
   const [passworderr, setPasswordErr] = React.useState(false);
   const [dbnameerr, setDbnameErr] = React.useState(false);
   const [message, setMessage] = React.useState(null);
   useEffect(() => {
-    setMode(props.mode);
-    setName(props.name);
-    setUserId(props.userId);
-    setPassword(props.password);
-    setDbname(props.dbname);
+    setMode(props.mode || '');
+    setName(props.name || '');
+    setUserId(props.userid || '');
+    setPassword(props.password || '');
+    setDbname(props.dbname || '');
     setNameErr(false);
     setUserIdErr(false);
     setPasswordErr(false);
@@ -47,14 +47,14 @@ export default function ConnectionSettings(props) {
     e.preventDefault();
     let iserr = false;
     setNameErr((!name || !name.trim()) && (iserr = true));
-    setUserIdErr((!userId || !userId.trim()) && (iserr = true));
+    setUserIdErr((!userid || !userid.trim()) && (iserr = true));
     setPasswordErr((!password || !password.trim()) && (iserr = true));
     setDbnameErr((!dbname || !dbname.trim()) && (iserr = true));
     if (iserr) {
       setMessage('値を入力してください。');
       return;
     }
-    const ret = props.submit({mode: mode, currentname: props.name, name: name, userId: userId, password: password, dbname: dbname});
+    const ret = props.submit({mode: mode, currentname: props.name, name: name, userid: userid, password: password, dbname: dbname});
     if (ret) {
       setMessage(ret);
     }
@@ -65,7 +65,7 @@ export default function ConnectionSettings(props) {
       case 'name':
         setName(e.target.value);
         break;
-      case 'userId':
+      case 'userid':
         setUserId(e.target.value);
         break;
       case 'password':
@@ -78,7 +78,7 @@ export default function ConnectionSettings(props) {
   }
 
   return (
-    <Dialog onClose={handleCancelDialog} {...props}>
+    <Dialog onClose={handleCancelDialog} open={props.open}>
         <DialogTitle>{mode == Mode.New ? 'New ' : ''}Connection Settings</DialogTitle>
         <FormControl required onSubmit={handleSubmit}>
           <DialogContent>
@@ -90,13 +90,13 @@ export default function ConnectionSettings(props) {
                   <TextField id="name" label="Connection Name" variant="standard" size="small" fullWidth required value={name} color={nameerr ? 'error' : 'primary'} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
-                  <TextField id="userId" label="User Id" variant="standard" size="small" fullWidth required value={userId} color={userIderr ? 'error' : 'primary'} onChange={handleChange}/>
+                  <TextField id="userid" label="User Id" variant="standard" size="small" fullWidth required value={userid} color={useriderr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
                   <TextField id="password" label="Password" variant="standard" size="small" fullWidth required type="password" value={password} color={passworderr ? 'error' : 'primary'} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
-                  <TextField id="dbname" label="DataBase Name" variant="standard" size="small" fullWidth required value={dbname} color={dbnameerr ? 'error' : 'primary'} onChange={handleChange}/>
+                  <TextField id="dbname" label="DataBase Name" variant="standard" size="small" fullWidth required value={dbname} color={dbnameerr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
                 </Grid>
               </Grid>
           </DialogContent>

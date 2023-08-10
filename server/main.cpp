@@ -24,7 +24,7 @@ typedef std::function<void(cex::Request* req, cex::Response* res, std::function<
 
 class MyServer {
    cex::Server svr;
-   DBBase db = DBBase(stdout);
+   DBBase db = DBBase();
 public:
    MyServer() : svr() {}
 

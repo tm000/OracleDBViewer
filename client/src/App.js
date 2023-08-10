@@ -4,14 +4,16 @@ import React, { useState, useRef, useEffect } from "react";
 import { FormControl, TextField, Button, InputLabel, Select, MenuItem } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import MyTreeView from './MyTreeView';
+import MySplitter from './MySplitter';
 import { convertQuickFilterV7ToLegacy } from '@mui/x-data-grid/internals';
 
 function App(props) {
-  const [connection, setConnection] = useState(null);
+  const [connection, setConnection] = useState('');
   const [sql, setSql] = useState(props.sql);
   const [rows, setRows] = useState([]);
   const [columns, setColumns] = useState([]);
   const [schemas, setSchemas] = useState([]);
+  const [schemasRefresh, setSchemasRefresh] = useState(false);
 
   useEffect(() => {
     if (localStorage.schemas) {
@@ -37,7 +39,7 @@ function App(props) {
         method: 'POST',
         body: JSON.stringify({
           sql: sql,
-          username: schema.userId,
+          username: schema.userid,
           password: schema.password,
           dbname: schema.dbname
         })
@@ -64,6 +66,7 @@ function App(props) {
       setColumns(columns);
       setRows(rows);
     } catch (e) {
+      alert('SQLの実行に失敗しました。');
       console.error(e);
     }
   }
@@ -86,10 +89,11 @@ function App(props) {
           Oracle Database Viewer
       </header>
       <nav className="App-nav">
-        <MyTreeView schemas={schemas} updateSchema={s => setSchemas(s)}/>
+        <MyTreeView schemas={schemas} updateSchema={s => {setSchemas(s); setSchemasRefresh(!schemasRefresh)}}/>
       </nav>
+      <MySplitter/>
       <main className="App-main">
-        <FormControl required fullWidth sx={{m: 1}}>
+        <FormControl required fullWidth sx={{mb: 1}}>
           <InputLabel id="connection-label">接続</InputLabel>
           <Select
             labelId="connection-label"
@@ -100,20 +104,20 @@ function App(props) {
             style={{width: "10%", minWidth: "150px", textAlign: "left"}}
           >
             {schemas.map((schema) => (
-              <MenuItem value={schema.name}>{schema.name}</MenuItem>
+              <MenuItem key={schema.name + ' ' + new Date()} value={schema.name} dummy={schemasRefresh ? '1': ''}>{schema.name}</MenuItem>
             ))}
           </Select>
         </FormControl>
-        <FormControl required fullWidth sx={{m: 1}}>
-          <TextField id="sql" label="SQL" variant="outlined" multiline rows={10} fullWidth size="small" required value={sql} onChange={handleChange}/>
+        <FormControl required fullWidth sx={{mb: 1}}>
+          <TextField id="sql" label="SQL" variant="outlined" multiline minRows={3} maxRows={10} fullWidth size="small" required value={sql} onChange={handleChange}/>
         </FormControl>
         <FormControl sx={{m: 1}}>
           <Button variant="contained" color="success" onClick={handleSubmit}>
             execute
           </Button>
         </FormControl>
-        <FormControl fullWidth sx={{m: 1}}>
-          <DataGrid rows={rows} columns={columns} />
+        <FormControl fullWidth sx={{mb: 1}}>
+          <DataGrid rows={rows} columns={columns}/>
         </FormControl>
       </main>
     </div>

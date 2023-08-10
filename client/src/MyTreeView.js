@@ -7,33 +7,21 @@ import TreeView from '@mui/lab/TreeView';
 import TreeItem, { treeItemClasses } from '@mui/lab/TreeItem';
 import Typography from '@mui/material/Typography';
 import MenuIcon from '@mui/icons-material/Menu';
-import DeleteIcon from '@mui/icons-material/Delete';
-import Label from '@mui/icons-material/Label';
 import PersonIcon from '@mui/icons-material/Person';
-import InfoIcon from '@mui/icons-material/Info';
-import ForumIcon from '@mui/icons-material/Forum';
-import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import {Mode as ConnectionSettingsMode, default as ConnectionSettings} from './ConnectionSettings';
 
 const StyledTreeItemRoot = styled(TreeItem)(({ theme }) => ({
   color: theme.palette.text.secondary,
   [`& .${treeItemClasses.content}`]: {
     color: theme.palette.text.secondary,
-    borderTopRightRadius: theme.spacing(2),
-    borderBottomRightRadius: theme.spacing(2),
+    /*borderTopRightRadius: theme.spacing(2),
+    borderBottomRightRadius: theme.spacing(2),*/
     paddingRight: theme.spacing(1),
     fontWeight: theme.typography.fontWeightMedium,
     '&.Mui-expanded': {
@@ -87,7 +75,7 @@ function StyledTreeItem(props) {
           }}
         >
           <Box component={LabelIcon} color="inherit" sx={{ mr: 1 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'inherit', flexGrow: 1 }}>
+          <Typography variant="body" sx={{ fontWeight: 'inherit', flexGrow: 1, wordBreak: 'keep-all' }}>
             {labelText}
           </Typography>
           <Typography variant="caption" color="inherit">
@@ -106,14 +94,14 @@ StyledTreeItem.propTypes = {
   labelText: PropTypes.string.isRequired,
 };
 
-const ITEM_HEIGHT = 48;
+const MENU_ITEM_HEIGHT = 48;
 
 export default function MyTreeView(props) {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [menuItems, setMenuItems] = React.useState([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogprops, setDialogProps] = React.useState({});
-  const [dummy, setDummy] = React.useState(false);
+  const [schemasRefresh, setSchemasRefresh] = React.useState(false);
   const open = Boolean(anchorEl);
   const schemas = props.schemas;
 
@@ -129,7 +117,16 @@ export default function MyTreeView(props) {
       case 'schema-menu' :
         const connname = e.getAttribute('data-connname');
         setMenuItems([{name:'変更', func: () => {handleClickOpen(ConnectionSettingsMode.Modify, connname);}},
-                    {name:'削除', func: () => {if (window.confirm('本当に削除してよろしいですか？')) {alert('deleted')};}}]);
+                    {name:'削除', func: () => {if (window.confirm('本当に削除してよろしいですか？')) {
+                      for (let i = 0; i < schemas.length; i++) {
+                        if (schemas[i].name === connname) {
+                          schemas.splice(i, 1)
+                          props.updateSchema(schemas);
+                          saveSchemas();
+                          break;
+                        }
+                      }
+                    };}}]);
         setAnchorEl(e.children[0] || e);
         break;
     }
@@ -151,34 +148,33 @@ export default function MyTreeView(props) {
         method: 'POST',
         body: JSON.stringify({
           sql: 'SELECT TABLE_NAME FROM USER_TABLES',
-          username: schema.userId,
+          username: schema.userid,
           password: schema.password,
           dbname: schema.dbname
         })
       });
       let resjson = await response.json();
       if (!response.ok) {
-        alert("An error occurs!\n" + resjson['error']);
+        alert("エラーが発生しました。\n" + resjson['error']);
         return;
       }
       resjson['body'].forEach(data => {
         schema.tables.push({name: data[0]});
       });
     } catch (e) {
+      alert('テーブル一覧の取得に失敗しました。');
       console.error(e);
-      schema.tables.push({name: 'emp'});
-      schema.tables.push({name: 'dept'});
     }
     props.updateSchema(schemas);
-    setDummy(!dummy);
+    setSchemasRefresh(!schemasRefresh);
   };
 
   const handleClickOpen = (mode, connname) => {
     if (mode == ConnectionSettingsMode.New) {
-      setDialogProps({mode: mode, name: '', userId: '', password: '', dbname: ''});
+      setDialogProps({mode: mode, name: '', userid: '', password: '', dbname: ''});
     } else {
       const schema = schemas.find(s => s.name == connname);
-      setDialogProps({mode: mode, name: connname, userId: schema.userId, password: schema.password, dbname: schema.dbname});
+      setDialogProps({mode: mode, name: connname, userid: schema.userid, password: schema.password, dbname: schema.dbname});
     }
     setDialogOpen(true);
   };
@@ -189,22 +185,26 @@ export default function MyTreeView(props) {
       if (exists) {
         return `接続名'${setting.name}'はすでに存在します。`;
       } else {
-        schemas.push({name: setting.name, userId: setting.userId, password: setting.password, dbname: setting.dbname, tables: []});
+        schemas.push({name: setting.name, userid: setting.userid, password: setting.password, dbname: setting.dbname, tables: []});
         props.updateSchema(schemas);
       }
     } else {
       const schema = schemas.find(s => s.name == setting.currentname);
       schema.name = setting.name;
-      schema.userId = setting.userId;
+      schema.userid = setting.userid;
       schema.password = setting.password;
       schema.dbname = setting.dbname;
       props.updateSchema(schemas);
     }
 
-    // store schemas exclude tables
-    localStorage.schemas = JSON.stringify(schemas.map(s => {return {name: s.name, userId: s.userId, password: s.password, dbname: s.dbname, tables: []};}));
+    saveSchemas();
     setDialogOpen(false);
   };
+
+  function saveSchemas() {
+    // store schemas exclude tables
+    localStorage.schemas = JSON.stringify(schemas.map(s => {return {name: s.name, userid: s.userid, password: s.password, dbname: s.dbname, tables: []};}));
+  }
 
   return (
     <TreeView
@@ -213,7 +213,7 @@ export default function MyTreeView(props) {
       defaultCollapseIcon={<ArrowDropDownIcon />}
       defaultExpandIcon={<ArrowRightIcon />}
       defaultEndIcon={<div style={{ width: 24 }} />}
-      sx={{ height: '100%', flexGrow: 1, maxWidth: 280 }}
+      sx={{ flexGrow: 1, maxWidth: 280 }}
     >
       <StyledTreeItem nodeId="root" labelText="接続" labelIcon={MenuIcon}
           aria-controls="connect-menu"
@@ -228,7 +228,7 @@ export default function MyTreeView(props) {
                           onContextMenu={handlePopup}>
             <StyledTreeItem nodeId={`${schema.name}-#tables`} labelText="テーブル" labelIcon={DatasetIcon}>
               {schema.tables.map((table) => (
-                <StyledTreeItem key={table.name} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon} dummy={dummy}>
+                <StyledTreeItem key={`${schema.name}-${table.name}`} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon} dummy={schemasRefresh ? '1' : ''}>
                 </StyledTreeItem>
               ))}
             </StyledTreeItem>
@@ -245,7 +245,7 @@ export default function MyTreeView(props) {
         onClose={handlePopupClose}
         PaperProps={{
           style: {
-            maxHeight: ITEM_HEIGHT * 4.5,
+            maxHeight: MENU_ITEM_HEIGHT * 4.5,
             width: '20ch',
             position: 'absolute',
             top: 0

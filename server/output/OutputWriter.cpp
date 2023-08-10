@@ -44,7 +44,7 @@ class OutputWriter {
 public:
     virtual void processColumnHedaer(vector<string>& headers) = 0;
     virtual void processBody(SQLDA* select_dp) = 0;
-    virtual void error(char* msg) = 0;
+    virtual void error(char* msg, ...) = 0;
 };
 
 class JsonWriter : public OutputWriter {
@@ -85,14 +85,19 @@ public:
         output["body"] = lines;
     };
 
-    void error(char* msg) {
+    void error(char* msg, ...) {
+        char buf[256];
+        va_list args;
+        va_start(args, msg);
+        vsprintf(buf, msg, args);
+        va_end(args);
         if (!output.contains("error")) {
             vector<string> errors;
-            errors.push_back(rtrimc(msg));
+            errors.push_back(rtrimc(buf));
             output["error"] = errors;
         } else {
             auto errors = output["error"];
-            errors.push_back(rtrimc(msg));
+            errors.push_back(rtrimc(buf));
             output["error"] = errors;
         }
     }
