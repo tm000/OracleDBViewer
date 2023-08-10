@@ -35,7 +35,7 @@ function App(props) {
 
     const schema = schemas.find(s => s.name == connection);
     try {
-      const response = await fetch('http://127.0.0.1:5555/api', {
+      const response = await fetch(process.env.REACT_APP_API_URL, {
         method: 'POST',
         body: JSON.stringify({
           sql: sql,
@@ -46,7 +46,7 @@ function App(props) {
       });
       let resjson = await response.json();
       if (!response.ok) {
-        alert("An error occurs!\n" + resjson['error']);
+        alert("エラーが発生しました。\n" + resjson['error']);
         return;
       }
 
@@ -104,7 +104,7 @@ function App(props) {
             style={{width: "10%", minWidth: "150px", textAlign: "left"}}
           >
             {schemas.map((schema) => (
-              <MenuItem key={schema.name + ' ' + new Date()} value={schema.name} dummy={schemasRefresh ? '1': ''}>{schema.name}</MenuItem>
+              <MenuItem key={schema.name} value={schema.name} dummy={schemasRefresh ? '1': ''}>{schema.name}</MenuItem>
             ))}
           </Select>
         </FormControl>

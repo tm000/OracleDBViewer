@@ -144,7 +144,7 @@ export default function MyTreeView(props) {
     if (schema.tables.length > 0) return;
 
     try {
-      const response = await fetch('http://127.0.0.1:5555/api', {
+      const response = await fetch(process.env.REACT_APP_API_URL, {
         method: 'POST',
         body: JSON.stringify({
           sql: 'SELECT TABLE_NAME FROM USER_TABLES',
