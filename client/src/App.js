@@ -14,6 +14,8 @@ function App(props) {
   const [columns, setColumns] = useState([]);
   const [schemas, setSchemas] = useState([]);
   const [schemasRefresh, setSchemasRefresh] = useState(false);
+  const coldata = [];
+  const rowdata = [];
 
   useEffect(() => {
     if (localStorage.schemas) {
@@ -23,6 +25,60 @@ function App(props) {
       setSchemas([]);
     }
   }, []);
+
+  let isDrug = false;
+  let isDrugged = false;
+
+  const handleColumnDrug = e => {
+    if (isDrug == true) {
+      let target = e.target;
+      while (!target.classList.contains('MuiDataGrid-columnHeader')) target = target.parentElement;
+      let lx = e.clientX - target.getBoundingClientRect().x;
+      target.style.width = `${lx}px`;
+      target.style.maxWidth = `${lx}px`;
+      target.style.minWidth = `${lx}px`;
+      let headers = target.parentElement;
+      while (!headers.classList.contains('MuiDataGrid-columnHeaders')) headers = headers.parentElement;
+      let rowdivs = headers.nextSibling;
+      while (!rowdivs.classList.contains('MuiDataGrid-virtualScrollerRenderZone')) rowdivs = rowdivs.children[0];
+      rowdivs= rowdivs.children;
+      const colindex = parseInt(target.getAttribute('aria-colindex'));
+      for (let i = 0; i < rowdivs.length; i++) {
+        rowdivs[i].children[colindex - 1].style.maxWidth = `${lx}px`;
+        rowdivs[i].children[colindex - 1].style.minWidth = `${lx}px`;
+      };
+      coldata[colindex - 1].width = lx;
+      isDrugged = true;
+    }
+  };
+
+  const setColumnEventHandler = () => {
+    let colcnt = 0;
+    console.log(document.querySelectorAll('.MuiDataGrid-columnSeparator'))
+    for (let el of document.querySelectorAll('.MuiDataGrid-columnSeparator')) {
+      el.style.cursor = 'col-resize';
+      el.onpointerdown=(e) => {e.target.setPointerCapture(e.pointerId);isDrug=true;}
+      el.onpointerup=(e) => {
+        e.target.releasePointerCapture(e.pointerId);
+        isDrug=false;
+        if (isDrugged) handleColumnDrugged();
+      }
+      el.onpointermove=handleColumnDrug
+      colcnt++;
+    }
+    // retry
+    if (colcnt == 0) setTimeout(() => setColumnEventHandler(), 500);
+  }
+
+  const handleColumnDrugged = () => {
+    setColumns([]);
+    setRows([]);
+    setTimeout(() => {
+      setColumns(coldata);
+      setRows(rowdata);
+      setTimeout(() => setColumnEventHandler(), 500);
+    }, 500);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -50,21 +106,22 @@ function App(props) {
         return;
       }
 
-      let columns = [];
+      if (coldata.length > 0) coldata.splice(0, coldata.length);
       for (let col of resjson['header']) {
-        columns.push({field: col, headerName: col, width: 150});
+        coldata.push({field: col, headerName: col, width: 150});
       }
-      let rows = [];
+      if (rowdata.length > 0) rowdata.splice(0, rowdata.length);
       resjson['body'].forEach((data, i) => {
         let row = {}
         row['id'] = i+1;
         for (let j=0; j<data.length; j++) {
           row[resjson['header'][j]] = data[j];
         }
-        rows.push(row);
+        rowdata.push(row);
       });
-      setColumns(columns);
-      setRows(rows);
+      setColumns(coldata);
+      setRows(rowdata);
+      setTimeout(() => setColumnEventHandler(), 500);
     } catch (e) {
       alert('SQLの実行に失敗しました。');
       console.error(e);
