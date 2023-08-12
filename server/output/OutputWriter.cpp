@@ -58,6 +58,7 @@ public:
             trimmed.push_back(trim(headers.at(i)));
         }
         output["header"] = nlohmann::json(trimmed);
+        output["body"] = lines;
     };
     void processBody(SQLDA* select_dp) {
         union {

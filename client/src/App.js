@@ -33,6 +33,7 @@ function App(props) {
     if (isDrug == true) {
       let target = e.target;
       while (!target.classList.contains('MuiDataGrid-columnHeader')) target = target.parentElement;
+      const colindex = target.getAttribute('aria-colindex');
       let lx = e.clientX - target.getBoundingClientRect().x;
       target.style.width = `${lx}px`;
       target.style.maxWidth = `${lx}px`;
@@ -40,20 +41,24 @@ function App(props) {
       let headers = target.parentElement;
       while (!headers.classList.contains('MuiDataGrid-columnHeaders')) headers = headers.parentElement;
       let rowdivs = headers.nextSibling;
-      while (!rowdivs.classList.contains('MuiDataGrid-virtualScrollerRenderZone')) rowdivs = rowdivs.children[0];
-      rowdivs= rowdivs.children;
-      const colindex = target.getAttribute('aria-colindex');
-      let colindex2;
-      for (let i = 0; i < rowdivs[0].children.length; i++) {
-        if (colindex == rowdivs[0].children[i].getAttribute('aria-colindex')) {
-          colindex2 = i;
-          break;
-        }
+      while (!rowdivs.classList.contains('MuiDataGrid-virtualScrollerRenderZone')) {
+        rowdivs = rowdivs.children[0];
+        if (rowdivs == undefined) break;
       }
-      for (let i = 0; i < rowdivs.length; i++) {
-        rowdivs[i].children[colindex2].style.maxWidth = `${lx}px`;
-        rowdivs[i].children[colindex2].style.minWidth = `${lx}px`;
-      };
+      if (rowdivs != undefined) {
+        rowdivs= rowdivs.children;
+        let colindex2 = 0;
+        for (let i = 0; i < rowdivs[0].children.length; i++) {
+          if (colindex == rowdivs[0].children[i].getAttribute('aria-colindex')) {
+            colindex2 = i;
+            break;
+          }
+        }
+        for (let i = 0; i < rowdivs.length; i++) {
+          rowdivs[i].children[colindex2].style.maxWidth = `${lx}px`;
+          rowdivs[i].children[colindex2].style.minWidth = `${lx}px`;
+        };
+      }
       coldata[parseInt(colindex) - 1].width = lx;
       isDrugged = true;
     }
