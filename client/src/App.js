@@ -80,7 +80,7 @@ function App(props) {
     // retry
     if (colcnt == 0) setTimeout(() => setColumnEventHandler(), 500);
 
-    document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].onscrollend = e => setColumnEventHandler();
+    document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].onscroll = e => setColumnEventHandler();
   }
 
   const handleColumnDrugged = () => {
