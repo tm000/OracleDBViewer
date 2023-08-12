@@ -42,19 +42,25 @@ function App(props) {
       let rowdivs = headers.nextSibling;
       while (!rowdivs.classList.contains('MuiDataGrid-virtualScrollerRenderZone')) rowdivs = rowdivs.children[0];
       rowdivs= rowdivs.children;
-      const colindex = parseInt(target.getAttribute('aria-colindex'));
+      const colindex = target.getAttribute('aria-colindex');
+      let colindex2;
+      for (let i = 0; i < rowdivs[0].children.length; i++) {
+        if (colindex == rowdivs[0].children[i].getAttribute('aria-colindex')) {
+          colindex2 = i;
+          break;
+        }
+      }
       for (let i = 0; i < rowdivs.length; i++) {
-        rowdivs[i].children[colindex - 1].style.maxWidth = `${lx}px`;
-        rowdivs[i].children[colindex - 1].style.minWidth = `${lx}px`;
+        rowdivs[i].children[colindex2].style.maxWidth = `${lx}px`;
+        rowdivs[i].children[colindex2].style.minWidth = `${lx}px`;
       };
-      coldata[colindex - 1].width = lx;
+      coldata[parseInt(colindex) - 1].width = lx;
       isDrugged = true;
     }
   };
 
   const setColumnEventHandler = () => {
     let colcnt = 0;
-    console.log(document.querySelectorAll('.MuiDataGrid-columnSeparator'))
     for (let el of document.querySelectorAll('.MuiDataGrid-columnSeparator')) {
       el.style.cursor = 'col-resize';
       el.onpointerdown=(e) => {e.target.setPointerCapture(e.pointerId);isDrug=true;}
@@ -68,16 +74,20 @@ function App(props) {
     }
     // retry
     if (colcnt == 0) setTimeout(() => setColumnEventHandler(), 500);
+
+    document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].onscrollend = e => setColumnEventHandler();
   }
 
   const handleColumnDrugged = () => {
+    const sx = document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].scrollLeft;
     setColumns([]);
-    setRows([]);
     setTimeout(() => {
       setColumns(coldata);
-      setRows(rowdata);
-      setTimeout(() => setColumnEventHandler(), 500);
-    }, 500);
+      setTimeout(() => {
+        document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].scrollLeft = sx;
+        setColumnEventHandler();
+      }, 500);
+    }, 0);
   }
 
   async function handleSubmit(e) {
