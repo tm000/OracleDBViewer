@@ -169,6 +169,13 @@ export default function MyTreeView(props) {
     setSchemasRefresh(!schemasRefresh);
   };
 
+  const handleTableDblClick = (event) => {
+    event.preventDefault();
+    let e = event.target;
+    while (e && e.nodeName.toUpperCase() != 'LI') e = e.parentNode;
+    props.appendSql(e.textContent);
+  };
+
   const handleClickOpen = (mode, connname) => {
     if (mode == ConnectionSettingsMode.New) {
       setDialogProps({mode: mode, name: '', userid: '', password: '', dbname: ''});
@@ -228,7 +235,9 @@ export default function MyTreeView(props) {
                           onContextMenu={handlePopup}>
             <StyledTreeItem nodeId={`${schema.name}-#tables`} labelText="テーブル" labelIcon={DatasetIcon}>
               {schema.tables.map((table) => (
-                <StyledTreeItem key={`${schema.name}-${table.name}`} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon} dummy={schemasRefresh ? '1' : ''}>
+                <StyledTreeItem key={`${schema.name}-${table.name}`} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon}
+                                dummy={schemasRefresh ? '1' : ''}
+                                onDoubleClick={handleTableDblClick}>
                 </StyledTreeItem>
               ))}
             </StyledTreeItem>

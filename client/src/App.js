@@ -158,13 +158,19 @@ function App(props) {
     setConnection(e.target.value);
   }
 
+  function appendSql(token) {
+    let newval = (sql || '') + token;
+    setSql(newval);
+  }
+
   return (
     <div className="App">
       <header className="App-header">
           Oracle Database Viewer
       </header>
       <nav className="App-nav">
-        <MyTreeView schemas={schemas} updateSchema={s => {setSchemas(s); setSchemasRefresh(!schemasRefresh)}}/>
+        <MyTreeView schemas={schemas} updateSchema={s => {setSchemas(s); setSchemasRefresh(!schemasRefresh)}}
+                    appendSql={appendSql}/>
       </nav>
       <MySplitter/>
       <main className="App-main">
