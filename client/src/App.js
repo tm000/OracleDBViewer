@@ -2,10 +2,8 @@ import './App.css';
 import { DataGrid } from '@mui/x-data-grid';
 import React, { useState, useRef, useEffect } from "react";
 import { FormControl, TextField, Button, InputLabel, Select, MenuItem } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
 import MyTreeView from './MyTreeView';
 import MySplitter from './MySplitter';
-import { convertQuickFilterV7ToLegacy } from '@mui/x-data-grid/internals';
 
 function App(props) {
   const [connection, setConnection] = useState('');
@@ -31,6 +29,7 @@ function App(props) {
 
   const handleColumnDrug = e => {
     if (isDrug == true) {
+      // resize header column width
       let target = e.target;
       while (!target.classList.contains('MuiDataGrid-columnHeader')) target = target.parentElement;
       const colindex = target.getAttribute('aria-colindex');
@@ -38,14 +37,15 @@ function App(props) {
       target.style.width = `${lx}px`;
       target.style.maxWidth = `${lx}px`;
       target.style.minWidth = `${lx}px`;
+      // resize rows column width
       let headers = target.parentElement;
       while (!headers.classList.contains('MuiDataGrid-columnHeaders')) headers = headers.parentElement;
       let rowdivs = headers.nextSibling;
       while (!rowdivs.classList.contains('MuiDataGrid-virtualScrollerRenderZone')) {
         rowdivs = rowdivs.children[0];
-        if (rowdivs == undefined) break;
+        if (!rowdivs) break;
       }
-      if (rowdivs != undefined) {
+      if (rowdivs) {
         rowdivs= rowdivs.children;
         let colindex2 = 0;
         for (let i = 0; i < rowdivs[0].children.length; i++) {
@@ -65,6 +65,7 @@ function App(props) {
   };
 
   const setColumnEventHandler = () => {
+    // set resize event for column headers
     let colcnt = 0;
     for (let el of document.querySelectorAll('.MuiDataGrid-columnSeparator')) {
       el.style.cursor = 'col-resize';
@@ -84,12 +85,14 @@ function App(props) {
   }
 
   const handleColumnDrugged = () => {
-    const sx = document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].scrollLeft;
-    setColumns([]);
+    // refresh column header width 
+    const coltmp = [];
+    coldata.forEach(c => coltmp.push(c));
+    coltmp.push({field: '@', headerName: ''})
+    setColumns(coltmp);
     setTimeout(() => {
       setColumns(coldata);
       setTimeout(() => {
-        document.querySelectorAll('.MuiDataGrid-virtualScroller')[0].scrollLeft = sx;
         setColumnEventHandler();
       }, 500);
     }, 0);
