@@ -48,6 +48,7 @@ EXEC SQL END DECLARE SECTION;
   int get_dyn_statement(const char*, char*[]);
   int set_bind_variables(OutputWriter&, char**, SQLDA*, SQLDA*);
   int process_select_list(OutputWriter&, char**, SQLDA*, SQLDA*);
+  int process_describe_list(OutputWriter&, SQLDA*, SQLDA*);
   void help(void);
 #else
   void sql_error(/*_ OutputWriter& _*/);
@@ -56,6 +57,7 @@ EXEC SQL END DECLARE SECTION;
   int get_dyn_statement(/* const char*, char*[]) _*/);
   int set_bind_variables(/*_ OutputWriter&, char**, SQLDA*, SQLDA* -*/);
   int process_select_list(/*_ OutputWriter&, char**, SQLDA*, SQLDA* _*/);
+  int process_describe_list(/*_ OutputWriter&, SQLDA*, SQLDA* _*/);
   void help(/*_ void _*/);
 #endif
 
@@ -77,6 +79,8 @@ jmp_buf jmp_continue;
 
 /* A global flag for the error routine. */
 int parse_flag = 0;
+
+int describe_flg = 0;
 
 int connect_open(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
 {
@@ -151,14 +155,21 @@ prepare_error:
         */
         EXEC SQL AT DB_NAME OPEN C USING DESCRIPTOR bind_dp;
 
-        /* Call the function that processes the select-list.
-        * If the statement is not a query, this function
-        * just returns, doing nothing.
-        */
-        if (process_select_list(writer, bindvars, bind_dp, select_dp) < 0) {
-            ret = -1;
-            goto sql_error;
-        };
+        if (describe_flg == 0) {
+            /* Call the function that processes the select-list.
+            * If the statement is not a query, this function
+            * just returns, doing nothing.
+            */
+            if (process_select_list(writer, bindvars, bind_dp, select_dp) < 0) {
+                ret = -1;
+                goto sql_error;
+            };
+        } else {
+            if (process_describe_list(writer, bind_dp, select_dp) < 0) {
+                ret = -1;
+                goto sql_error;
+            };
+        }
 
         /* Tell user how many rows processed. */
         for (i = 0; i < 8; i++)
@@ -277,10 +288,18 @@ int get_dyn_statement(const char* sql, char *bindvars[])
 
     dyn_statement[0] = '\0';
 
-    strcat(dyn_statement, sql);
     const char *ptr = sql;
     while(isspace(*ptr)) ptr++;
     if (strncasecmp(ptr, "BEGIN", 5) == 0) plsql = 1;
+    if (strncasecmp(ptr, "DESC ", 5) == 0 || strncasecmp(ptr, "DESCRIBE ", 9) == 0) {
+        const char* tbl = strchr(ptr, ' ');
+        strcat(dyn_statement, "SELECT * FROM");
+        strcat(dyn_statement, tbl);
+        describe_flg = 1;
+    } else {
+        strcat(dyn_statement, sql);
+        describe_flg = 0;
+    }
 
     if ((plsql && (cp = strrchr(dyn_statement, '/'))) ||
         (!plsql && (cp = strrchr(dyn_statement, ';'))))
@@ -580,6 +599,41 @@ sql_error:
 
 end_select_loop:
     return 0;
+}
+
+int process_describe_list(OutputWriter& writer, SQLDA* bind_dp, SQLDA* select_dp)
+{
+    int i, j, n, null_ok, precision, scale;
+
+    select_dp->N = MAX_ITEMS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sql_error;
+    EXEC SQL AT DB_NAME DESCRIBE SELECT LIST FOR S INTO select_dp;
+sql_error:
+    if (sqlca.sqlcode < 0) {
+        sql_error(writer);
+        return -1;
+    }
+
+    if (select_dp->F < 0)
+    {
+        fprintf(stderr, "\nToo many select-list items (%d), maximum is %d\n",
+                -(select_dp->F), MAX_ITEMS);
+        writer.error("Too many select-list items (%d), maximum is %d",
+                -(select_dp->F), MAX_ITEMS);
+        return -1;
+    }
+
+    select_dp->N = select_dp->F;
+    
+    vector<string> headers;
+    headers.push_back("NAME");
+    headers.push_back("TYPE");
+    headers.push_back("NULLABLE");
+    writer.processColumnHedaer(headers);
+    writer.processDesc(select_dp);
+    return 0;
+
 }
 
 void sql_error(OutputWriter& writer)
