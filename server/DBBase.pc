@@ -45,7 +45,7 @@ EXEC SQL END DECLARE SECTION;
   void sql_error(OutputWriter&);
   int oracle_connect(void);
   SQLDA** alloc_descriptors(OutputWriter&, int, int, int);
-  int get_dyn_statement(const char*, char*[]);
+  int get_dyn_statement(OutputWriter&, const char*, char*[]);
   int set_bind_variables(OutputWriter&, char**, SQLDA*, SQLDA*);
   int process_select_list(OutputWriter&, char**, SQLDA*, SQLDA*);
   int process_describe_list(OutputWriter&, SQLDA*, SQLDA*);
@@ -54,7 +54,7 @@ EXEC SQL END DECLARE SECTION;
   void sql_error(/*_ OutputWriter& _*/);
   int oracle_connect(/*_ void _*/);
   SQLDA** alloc_descriptors(/*_ OutputWriter&, int, int, int _*/);
-  int get_dyn_statement(/* const char*, char*[]) _*/);
+  int get_dyn_statement(/*_ OutputWriter&, const char*, char*[]) _*/);
   int set_bind_variables(/*_ OutputWriter&, char**, SQLDA*, SQLDA* -*/);
   int process_select_list(/*_ OutputWriter&, char**, SQLDA*, SQLDA* _*/);
   int process_describe_list(/*_ OutputWriter&, SQLDA*, SQLDA* _*/);
@@ -104,7 +104,7 @@ sql_error:
     return 0;
 }
 
-int executeSql(OutputWriter& writer, const char* sql, char *bindvars[]) {
+int executeSql(OutputWriter& writer, const char* uname, const char* sql, char *bindvars[]) {
     int i, ret = 0;
 
     EXEC SQL WHENEVER SQLERROR GOTO prepare_error;
@@ -133,7 +133,10 @@ prepare_error:
         EXEC SQL WHENEVER SQLERROR GOTO sql_error;//DO sql_error();
 
         /* Get the statement. */
-        get_dyn_statement(sql, bindvars);
+        if (get_dyn_statement(writer, sql, bindvars) < 0) {
+            ret = -1;
+            goto sql_error;
+        };
 
         parse_flag = 1;     /* Set a flag for sql_error(). */
         EXEC SQL AT DB_NAME PREPARE S FROM :dyn_statement;
@@ -141,6 +144,27 @@ prepare_error:
 
         EXEC SQL AT DB_NAME DECLARE C CURSOR FOR S;
 
+        if (describe_flg == 1) {
+            const char *ptr = sql;
+            while(isspace(*ptr)) ptr++;
+            const char* tblname = strchr(ptr, ' ');
+            tblname++;
+            char** tmp = (char**)realloc(bindvars, sizeof(char*)*2);
+            if (tmp == nullptr) {
+                fprintf(stderr, "\nMemory allocation error\n");
+                writer.error("Memory allocation error");
+                ret = -1;
+                goto sql_error;
+            } else {
+                bindvars = tmp;
+                char* owner = (char*)malloc(strlen(uname)+1);
+                memcpy(owner, uname, strlen(uname)+1);
+                char* tablename = (char*)malloc(strlen(tblname)+1);
+                memcpy(tablename, tblname, strlen(tblname)+1);
+                bindvars[0] = owner;
+                bindvars[1] = tablename;
+            }
+        }
         /* Set the bind variables for any placeholders in the
         SQL statement. */
         if (set_bind_variables(writer, bindvars, bind_dp, select_dp) < 0) {
@@ -155,21 +179,10 @@ prepare_error:
         */
         EXEC SQL AT DB_NAME OPEN C USING DESCRIPTOR bind_dp;
 
-        if (describe_flg == 0) {
-            /* Call the function that processes the select-list.
-            * If the statement is not a query, this function
-            * just returns, doing nothing.
-            */
-            if (process_select_list(writer, bindvars, bind_dp, select_dp) < 0) {
-                ret = -1;
-                goto sql_error;
-            };
-        } else {
-            if (process_describe_list(writer, bind_dp, select_dp) < 0) {
-                ret = -1;
-                goto sql_error;
-            };
-        }
+        if (process_select_list(writer, bindvars, bind_dp, select_dp) < 0) {
+            ret = -1;
+            goto sql_error;
+        };
 
         /* Tell user how many rows processed. */
         for (i = 0; i < 8; i++)
@@ -280,7 +293,7 @@ SQLDA** alloc_descriptors(OutputWriter& writer, int size, int max_vname_len, int
     return ret;
 }
 
-int get_dyn_statement(const char* sql, char *bindvars[])
+int get_dyn_statement(OutputWriter& writer, const char* sql, char *bindvars[])
 {
     char *cp, linebuf[256];
     int iter, plsql;
@@ -292,9 +305,7 @@ int get_dyn_statement(const char* sql, char *bindvars[])
     while(isspace(*ptr)) ptr++;
     if (strncasecmp(ptr, "BEGIN", 5) == 0) plsql = 1;
     if (strncasecmp(ptr, "DESC ", 5) == 0 || strncasecmp(ptr, "DESCRIBE ", 9) == 0) {
-        const char* tbl = strchr(ptr, ' ');
-        strcat(dyn_statement, "SELECT * FROM");
-        strcat(dyn_statement, tbl);
+        strcat(dyn_statement, "SELECT COLUMN_ID, COLUMN_NAME, NULLABLE, DATA_TYPE FROM SYS.ALL_TAB_COLS WHERE OWNER=UPPER(:OWNER) AND TABLE_NAME=UPPER(:TABLE_NAME) ORDER BY COLUMN_ID;");
         describe_flg = 1;
     } else {
         strcat(dyn_statement, sql);
@@ -601,41 +612,6 @@ end_select_loop:
     return 0;
 }
 
-int process_describe_list(OutputWriter& writer, SQLDA* bind_dp, SQLDA* select_dp)
-{
-    int i, j, n, null_ok, precision, scale;
-
-    select_dp->N = MAX_ITEMS;
-    
-    EXEC SQL WHENEVER SQLERROR GOTO sql_error;
-    EXEC SQL AT DB_NAME DESCRIBE SELECT LIST FOR S INTO select_dp;
-sql_error:
-    if (sqlca.sqlcode < 0) {
-        sql_error(writer);
-        return -1;
-    }
-
-    if (select_dp->F < 0)
-    {
-        fprintf(stderr, "\nToo many select-list items (%d), maximum is %d\n",
-                -(select_dp->F), MAX_ITEMS);
-        writer.error("Too many select-list items (%d), maximum is %d",
-                -(select_dp->F), MAX_ITEMS);
-        return -1;
-    }
-
-    select_dp->N = select_dp->F;
-    
-    vector<string> headers;
-    headers.push_back("NAME");
-    headers.push_back("TYPE");
-    headers.push_back("NULLABLE");
-    writer.processColumnHedaer(headers);
-    writer.processDesc(select_dp);
-    return 0;
-
-}
-
 void sql_error(OutputWriter& writer)
 {
     /* ORACLE error handler */
@@ -734,6 +710,6 @@ sql_error:
                 break;
             }
         va_end(ap);
-        return executeSql(writer, sql, bindvars);
+        return executeSql(writer, current.uname, sql, bindvars);
     }
 };

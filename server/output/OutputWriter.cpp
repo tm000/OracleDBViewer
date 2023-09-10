@@ -46,7 +46,6 @@ class OutputWriter {
 public:
     virtual void processColumnHedaer(vector<string>& headers) = 0;
     virtual void processBody(SQLDA* select_dp) = 0;
-    virtual void processDesc(SQLDA* select_dp) = 0;
     virtual void error(char* msg, ...) = 0;
 };
 
@@ -87,72 +86,6 @@ public:
                 }
         }
         lines.push_back(line);
-        output["body"] = lines;
-    };
-
-    void processDesc(SQLDA* select_dp) {
-        int i, j, n, null_ok, precision, scale;
-        for (i = 0; i < select_dp->F; i++)
-        {
-            vector<string> line;
-            char title[MAX_VNAME_LEN]; 
-            memset(title, ' ', MAX_VNAME_LEN);
-            strncpy(title, select_dp->S[i], select_dp->C[i]);
-            line.push_back(title);
-
-            SQLColumnNullCheck (SQL_SINGLE_RCTX, (unsigned short *)&(select_dp->T[i]), 
-                (unsigned short *)&(select_dp->T[i]), &null_ok);
-
-            char buf[16];
-            switch (select_dp->T[i])
-            {
-                case  1 :
-                    sprintf(buf, "VARCHAR2(%d)", select_dp->L[i]);
-                    line.push_back(buf);
-                    break;
-                case  2 :
-                    SQLNumberPrecV6( SQL_SINGLE_RCTX, 
-                        (unsigned int *)&(select_dp->L[i]), &precision, &scale);
-                    if (precision !=0 || scale != 0)
-                        sprintf(buf, "NUMBER(%d,%d)", precision, scale);
-                    else
-                        sprintf(buf, "NUMBER");
-                    line.push_back(buf);
-                    break;
-                case  12 :
-                    line.push_back("DATE");
-                    break;
-                case  96 :
-                    sprintf(buf, "CHAR(%d)", select_dp->L[i]);
-                    line.push_back(buf);
-                    break;
-                case  112 :
-                    line.push_back("CLOB");
-                    break;
-                case  187 :
-                    line.push_back("TIMESTAMP");
-                    break;
-                case  188 :
-                    line.push_back("TIMESTAMP(9) WITH TIME ZONE");
-                    break;
-                case  189 :
-                    line.push_back("INTERVAL YEAR(4) TO MONTH");
-                    break;
-                case  190 :
-                    line.push_back("INTERVAL DAY(4) TO SECOND(9)");
-                    break;
-                case  232 :
-                    line.push_back("TIMESTAMP(9) WITH LOCAL TIME ZONE");
-                    break;
-
-                default:
-                    line.push_back("?");
-            }
-            
-            line.push_back(null_ok ? "Yes" : "No");
-            lines.push_back(line);
-        }
-
         output["body"] = lines;
     };
 
