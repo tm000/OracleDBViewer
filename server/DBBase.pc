@@ -1,17 +1,17 @@
 #include <stdio.h>
 #include <string.h>
-#include <sqlca.h>
 #include <stdlib.h>
 #include <setjmp.h>
-#include <sqlda.h>
-#include <sqlcpr.h>
 #include <fstream>
 #include <iostream>
-#include "output/OutputWriter.cpp"
+#include "DBBase.h"
+#include "output/OutputWriter.h"
 
 #define UNAME_LEN      20
 #define PWD_LEN        11
 #define DBSTR_LEN      20
+
+using namespace std;
 
 /*
 * Use the precompiler typedef'ing capability to create
@@ -189,6 +189,11 @@ prepare_error:
         {
         if (strncmp(dyn_statement, dml_commands[i], 6) == 0)
         {
+            if (describe_flg == 1 && sqlca.sqlerrd[2] == 0) {
+                writer.error("表が存在しません。");
+                ret = -1;
+                break;
+            }
             printf("\n\n%d row%c processed.\n", sqlca.sqlerrd[2],
                     sqlca.sqlerrd[2] == 1 ? '\0' : 's');
             break;
@@ -218,6 +223,12 @@ sql_error:
     /* Free space used by the descriptors themselves. */
     SQLSQLDAFree( SQL_SINGLE_RCTX, bind_dp);
     SQLSQLDAFree( SQL_SINGLE_RCTX, select_dp);
+
+    if (describe_flg == 1) {
+        free(bindvars[0]);
+        free(bindvars[1]);
+        free(bindvars);
+    }
 
     EXEC SQL WHENEVER SQLERROR CONTINUE;
     /* Close the cursor. */
@@ -627,89 +638,76 @@ void sql_error(OutputWriter& writer)
     EXEC SQL ROLLBACK WORK;
 }
 
-struct connection {
-    char* uname;
-    char* pswd;
-    char* dbname;
-};
-
-class DBBase
-{
-private:
-    bool isDBOpen = false;
-    struct connection current;
-public:
-    DBBase() {
+DBBase::DBBase() {
+}
+DBBase::~DBBase() {
+    if (DBBase::isDBOpen) {
+        EXEC SQL COMMIT WORK RELEASE;
     }
-    virtual ~DBBase() {
-        if (DBBase::isDBOpen) {
-            EXEC SQL COMMIT WORK RELEASE;
-        }
+    free(current.uname);
+    free(current.pswd);
+    free(current.dbname);
+}
+
+int DBBase::connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
+{
+    if (isDBOpen) {
+        if (strcmp(uname, current.uname) == 0 && strcmp(pswd, current.pswd) == 0 && strcmp(dbname, current.dbname) == 0) return 0;
+        disconnect();
+    }
+
+    if (connect_open(writer, uname, pswd, dbname) == 0) {
+        isDBOpen = true;
         free(current.uname);
         free(current.pswd);
         free(current.dbname);
+        current.uname = (char*)malloc(strlen(uname));
+        current.pswd = (char*)malloc(strlen(pswd));
+        current.dbname = (char*)malloc(strlen(dbname));
+        strcpy(current.uname, uname);
+        strcpy(current.pswd, pswd);
+        strcpy(current.dbname, dbname);
+        printf("\nConnected to ORACLE as user: %s\n", username.arr);
     }
-
-    int connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
-    {
-        if (isDBOpen) {
-            if (strcmp(uname, current.uname) == 0 && strcmp(pswd, current.pswd) == 0 && strcmp(dbname, current.dbname) == 0) return 0;
-            disconnect();
-        }
-
-        if (connect_open(writer, uname, pswd, dbname) == 0) {
-            isDBOpen = true;
-            free(current.uname);
-            free(current.pswd);
-            free(current.dbname);
-            current.uname = (char*)malloc(strlen(uname));
-            current.pswd = (char*)malloc(strlen(pswd));
-            current.dbname = (char*)malloc(strlen(dbname));
-            strcpy(current.uname, uname);
-            strcpy(current.pswd, pswd);
-            strcpy(current.dbname, dbname);
-            printf("\nConnected to ORACLE as user: %s\n", username.arr);
-        }
 
 sql_error:
-        if (sqlca.sqlcode < 0) {
-            sql_error(writer);
-            return -1;
-        }
-        return 0;
+    if (sqlca.sqlcode < 0) {
+        sql_error(writer);
+        return -1;
     }
+    return 0;
+}
 
-    void disconnect()
-    {
-        if (!isDBOpen) return;
+void DBBase::disconnect()
+{
+    if (!isDBOpen) return;
 
-        EXEC SQL WHENEVER SQLERROR CONTINUE;
-        EXEC SQL COMMIT WORK RELEASE;
-        isDBOpen = false;
-    }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK RELEASE;
+    isDBOpen = false;
+}
 
-    int execute(OutputWriter& writer, const char* sql, ...) {
-        // bindvars生成
-        char **bindvars = {};
-        va_list ap;
-        va_start(ap, sql);
-        int cnt = 0;
-        const char *ptr = sql;
-        while (*ptr)
-            switch (*ptr++) {
-            case ':':
-                char** tmp = (char**)realloc(bindvars, sizeof(char*)*(++cnt));
-                if (tmp == nullptr) {
-                    fprintf(stderr, "\nMemory allocation error\n");
-                    writer.error("Memory allocation error");
-                    return -1;
-                } else {
-                    bindvars = tmp;
-                    bindvars[cnt - 1] = va_arg(ap, char *);
-                }
-                break;
+int DBBase::execute(OutputWriter& writer, const char* sql, ...) {
+    // bindvars生成
+    char **bindvars = {};
+    va_list ap;
+    va_start(ap, sql);
+    int cnt = 0;
+    const char *ptr = sql;
+    while (*ptr)
+        switch (*ptr++) {
+        case ':':
+            char** tmp = (char**)realloc(bindvars, sizeof(char*)*(++cnt));
+            if (tmp == nullptr) {
+                fprintf(stderr, "\nMemory allocation error\n");
+                writer.error("Memory allocation error");
+                return -1;
+            } else {
+                bindvars = tmp;
+                bindvars[cnt - 1] = va_arg(ap, char *);
             }
-        va_end(ap);
-        return executeSql(writer, current.uname, sql, bindvars);
-    }
-};
+            break;
+        }
+    va_end(ap);
+    return executeSql(writer, current.uname, sql, bindvars);
+}

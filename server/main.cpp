@@ -1,3 +1,6 @@
+#define SQLCA_NONE 1
+#define ORACA_NONE 1
+
 #include <cex.hpp>
 #include <cex/session.hpp>
 #include <cex/security.hpp>
@@ -9,9 +12,8 @@
 #include <unistd.h>
 #include <csignal>
 #include <stdlib.h>
-#include <sqlcpr.h>
-#include "DBBase.cpp"
-#include "output/OutputWriter.cpp"
+#include "DBBase.h"
+#include "output/OutputWriter.h"
 #include <iostream>
 #include <nlohmann/json.hpp>
 

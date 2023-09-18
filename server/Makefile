@@ -96,7 +96,7 @@ all: clean $(PROCDEMO)
 	$(MAKE) -f $(MAKEFILE) PROCFLAGS="CODE=CPP CPP_SUFFIX=cpp SQLCHECK=SEMANTICS" PCCSRC=$* I_SYM=include= pc1
 
 $(PROCDEMO): DBBase.cpp
-	$(MAKE) -f $(MAKEFILE) build OBJS=$@.o EXE=$@
+	$(MAKE) -f $(MAKEFILE) build OBJS=$@.o EXE="$@ DBBase.cpp output/OutputWriter.cpp"
 	
 build: $(CLNCACHE) $(OBJS)
 	$(DEMO_PROC_BUILD)
