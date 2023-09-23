@@ -120,7 +120,11 @@ function App(props) {
       });
       let resjson = await response.json();
       if (!response.ok) {
-        alert("エラーが発生しました。\n" + resjson['error']);
+        if (response.status < 500) {
+          alert("エラーが発生しました。\n" + resjson['error']);
+        } else {
+          alert("予期せぬエラーが発生しました。\n" + resjson['error']);
+        }
         return;
       }
 

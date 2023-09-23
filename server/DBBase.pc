@@ -36,10 +36,6 @@ EXEC SQL END DECLARE SECTION;
 #define MAX_VNAME_LEN     30
 #define MAX_INAME_LEN     30
 
-#ifndef NULL
-#define NULL  0
-#endif
-
 /* Prototypes */
 #if defined(__STDC__)
   void sql_error(OutputWriter&);
@@ -63,8 +59,7 @@ EXEC SQL END DECLARE SECTION;
 
 #define hexchr2dec(x) (x>='a' ? x-'a'+10 : x>='A' ? x-'A'+10 : x-'0')
 
-char *dml_commands[] = {"SELECT", "select", "INSERT", "insert",
-                        "UPDATE", "update", "DELETE", "delete"};
+char *dml_commands[] = {"SELECT", "INSERT", "UPDATE", "DELETE"};
 
 EXEC SQL INCLUDE sqlda;
 EXEC SQL INCLUDE sqlca;
@@ -116,7 +111,7 @@ int executeSql(OutputWriter& writer, const char* uname, const char* sql, char *b
 prepare_error:
     if (sqlca.sqlcode < 0) {
         sql_error(writer);
-        return -1;
+        return -2;
     }
 
     /* Allocate memory for the select and bind descriptors. */
@@ -124,7 +119,7 @@ prepare_error:
     SQLDA *bind_dp = desc[0];
     SQLDA *select_dp = desc[1];
     if (bind_dp == (SQLDA*)0 || select_dp == (SQLDA*)0) 
-        exit(1);
+        return -2;
 
     /* Process SQL statements. */
     for (;;) 
@@ -153,14 +148,14 @@ prepare_error:
             if (tmp == nullptr) {
                 fprintf(stderr, "\nMemory allocation error\n");
                 writer.error("Memory allocation error");
-                ret = -1;
+                ret = -2;
                 goto sql_error;
             } else {
                 bindvars = tmp;
                 char* owner = (char*)malloc(strlen(uname)+1);
-                memcpy(owner, uname, strlen(uname)+1);
+                strcpy(owner, uname);
                 char* tablename = (char*)malloc(strlen(tblname)+1);
-                memcpy(tablename, tblname, strlen(tblname)+1);
+                strcpy(tablename, tblname);
                 bindvars[0] = owner;
                 bindvars[1] = tablename;
             }
@@ -187,7 +182,7 @@ prepare_error:
         /* Tell user how many rows processed. */
         for (i = 0; i < 8; i++)
         {
-        if (strncmp(dyn_statement, dml_commands[i], 6) == 0)
+        if (strncasecmp(dyn_statement, dml_commands[i], 6) == 0)
         {
             if (describe_flg == 1 && sqlca.sqlerrd[2] == 0) {
                 writer.error("表が存在しません。");
@@ -397,8 +392,7 @@ int set_bind_variables(OutputWriter& writer, char *bindvars[], SQLDA* bind_dp, S
         strncpy(bind_dp->V[i], bindvars[i], n);
 
         /* Set the indicator variable's value. */
-        if ((strncmp(bind_dp->V[i], "NULL", 4) == 0) ||
-                (strncmp(bind_dp->V[i], "null", 4) == 0))
+        if (strncasecmp(bind_dp->V[i], "NULL", 4) == 0)
             *bind_dp->I[i] = -1;
         else
             *bind_dp->I[i] = 0;
@@ -419,8 +413,7 @@ int process_select_list(OutputWriter& writer, char** bindvars, SQLDA* bind_dp, S
 {
     int i, j, n, null_ok, precision, scale;
 
-    if ((strncmp(dyn_statement, "SELECT", 6) != 0) &&
-        (strncmp(dyn_statement, "select", 6) != 0))
+    if (strncasecmp(dyn_statement, "SELECT", 6) != 0)
     {
         for (int i = 0; i < bind_dp->F; i++) {
             if (strncmp(bindvars[i], bind_dp->V[i], bind_dp->L[i]) != 0) {
@@ -563,6 +556,12 @@ sql_error:
                 select_dp->V[i] = (char *) realloc(select_dp->V[i], select_dp->L[i] + 1);  
                 break;
 
+            case 113 : /* BLOB */
+                select_dp->T[i] = 23;
+                select_dp->L[i] = 0;
+                select_dp->V[i] = (char *) realloc(select_dp->V[i], select_dp->L[i] + 1);  
+                break;
+
             case 187 : /* DATE datatype */
                 select_dp->T[i] = 5;
                 select_dp->L[i] = 30;
@@ -701,7 +700,7 @@ int DBBase::execute(OutputWriter& writer, const char* sql, ...) {
             if (tmp == nullptr) {
                 fprintf(stderr, "\nMemory allocation error\n");
                 writer.error("Memory allocation error");
-                return -1;
+                return -2;
             } else {
                 bindvars = tmp;
                 bindvars[cnt - 1] = va_arg(ap, char *);

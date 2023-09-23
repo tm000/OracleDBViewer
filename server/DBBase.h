@@ -1,5 +1,5 @@
-#ifndef DBBASE_HPP
-#define DBBASE_HPP
+#ifndef DBBASE_H
+#define DBBASE_H
 
 #include <sqlca.h>
 #include <sqlda.h>
@@ -28,4 +28,4 @@ public:
     int execute(OutputWriter& writer, const char* sql, ...);
 };
 
-#endif // DBBASE_HPP
+#endif // DBBASE_H

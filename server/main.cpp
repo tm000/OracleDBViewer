@@ -26,7 +26,7 @@ typedef std::function<void(cex::Request* req, cex::Response* res, std::function<
 
 class MyServer {
    cex::Server svr;
-   DBBase db = DBBase();
+   DBBase db;
 public:
    MyServer() : svr() {}
 
@@ -85,11 +85,9 @@ int main()
    signal(SIGINT, signal_handler);
    app.post("/api", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
       if (req->getBodyLength() > 0) {
-         char *bodystr = (char*)malloc(req->getBodyLength()+1);
-         strncpy(bodystr, req->getBody(), req->getBodyLength());
-         bodystr[req->getBodyLength()] = '\0';
-         auto jsonstr = json::parse(bodystr);
-         free(bodystr);
+         auto bodystr = std::make_unique<char[]>(req->getBodyLength()+1);
+         strncpy(bodystr.get(), req->getBody(), req->getBodyLength());
+         auto jsonstr = json::parse(bodystr.get());
          if (jsonstr.contains("sql") && jsonstr.contains("username") && jsonstr.contains("password") && jsonstr.contains("dbname")) {
             JsonWriter writer;
             int ret = db->connect(writer, jsonstr["username"].get<string>().c_str(),
@@ -105,7 +103,7 @@ int main()
             res->set("Access-Control-Allow-Headers", "Content-Type");
             res->set("Content-Type", "application/json; charset=utf-8");
             // printf("%s\n", writer.getJson().c_str());
-            res->end(writer.getJson().c_str(), strlen(writer.getJson().c_str()), ret == 0 ? 200 : 400);
+            res->end(writer.getJson().c_str(), strlen(writer.getJson().c_str()), ret == 0 ? 200 : ret == -1 ? 400 : 500);
          } else
             res->end(400);
          return;

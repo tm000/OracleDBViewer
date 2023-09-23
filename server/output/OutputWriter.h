@@ -1,5 +1,5 @@
-#ifndef OUTPUTWRITER_HPP
-#define OUTPUTWRITER_HPP
+#ifndef OUTPUTWRITER_H
+#define OUTPUTWRITER_H
 
 #define SQLCA_NONE 1
 #define ORACA_NONE 1
@@ -68,4 +68,4 @@ public:
 };
 
 
-#endif // OUTPUTWRITER_HPP
+#endif // OUTPUTWRITER_H
