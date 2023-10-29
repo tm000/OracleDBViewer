@@ -15,6 +15,7 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import {Mode as ConnectionSettingsMode, default as ConnectionSettings} from './ConnectionSettings';
+import { useTranslation } from 'react-i18next';
 
 const StyledTreeItemRoot = styled(TreeItem)(({ theme }) => ({
   color: theme.palette.text.secondary,
@@ -104,6 +105,7 @@ export default function MyTreeView(props) {
   const [schemasRefresh, setSchemasRefresh] = React.useState(false);
   const open = Boolean(anchorEl);
   const schemas = props.schemas;
+  const { t, i18n } = useTranslation();
 
   const handlePopup = (event) => {
     event.preventDefault();
@@ -111,13 +113,13 @@ export default function MyTreeView(props) {
     while (e && e.nodeName.toUpperCase() != 'LI') e = e.parentNode;
     switch (e.getAttribute('aria-controls')) {
       case 'connect-menu' :
-        setMenuItems([{name:'追加', func: () => {handleClickOpen(ConnectionSettingsMode.New)}}]);
+        setMenuItems([{name:t("Add"), func: () => {handleClickOpen(ConnectionSettingsMode.New)}}]);
         setAnchorEl(e.children[0] || e);
         break;
       case 'schema-menu' :
         const connname = e.getAttribute('data-connname');
-        setMenuItems([{name:'変更', func: () => {handleClickOpen(ConnectionSettingsMode.Modify, connname);}},
-                    {name:'削除', func: () => {if (window.confirm('本当に削除してよろしいですか？')) {
+        setMenuItems([{name:t("Edit"), func: () => {handleClickOpen(ConnectionSettingsMode.Modify, connname);}},
+                    {name:t("Delete"), func: () => {if (window.confirm(t("Delete confirm message"))) {
                       for (let i = 0; i < schemas.length; i++) {
                         if (schemas[i].name === connname) {
                           schemas.splice(i, 1)
@@ -155,14 +157,14 @@ export default function MyTreeView(props) {
       });
       let resjson = await response.json();
       if (!response.ok) {
-        alert("エラーが発生しました。\n" + resjson['error']);
+        alert(t("An error has occurred") + "\n" + resjson['error']);
         return;
       }
       resjson['body'].forEach(data => {
         schema.tables.push({name: data[0]});
       });
     } catch (e) {
-      alert('テーブル一覧の取得に失敗しました。');
+      alert(t("Failed to get table list"));
       console.error(e);
     }
     props.updateSchema(schemas);
@@ -190,7 +192,7 @@ export default function MyTreeView(props) {
     if (setting.mode == ConnectionSettingsMode.New) {
       const exists = schemas.find(s => s.name == setting.name);
       if (exists) {
-        return `接続名'${setting.name}'はすでに存在します。`;
+        return `${t("Connection Name")}'${setting.name}'${t("Already exists")}`;
       } else {
         schemas.push({name: setting.name, userid: setting.userid, password: setting.password, dbname: setting.dbname, tables: []});
         props.updateSchema(schemas);
@@ -222,7 +224,7 @@ export default function MyTreeView(props) {
       defaultEndIcon={<div style={{ width: 24 }} />}
       sx={{ flexGrow: 1, maxWidth: 280 }}
     >
-      <StyledTreeItem nodeId="root" labelText="接続" labelIcon={MenuIcon}
+      <StyledTreeItem nodeId="root" labelText={t("connections")} labelIcon={MenuIcon}
           aria-controls="connect-menu"
           aria-expanded={open ? 'true' : undefined} aria-haspopup="true"
           onContextMenu={handlePopup}>
@@ -233,7 +235,7 @@ export default function MyTreeView(props) {
                           data-connname={schema.name}
                           onClick={handleSchemaClick}
                           onContextMenu={handlePopup}>
-            <StyledTreeItem nodeId={`${schema.name}-#tables`} labelText="テーブル" labelIcon={DatasetIcon}>
+            <StyledTreeItem nodeId={`${schema.name}-#tables`} labelText={t("tables")} labelIcon={DatasetIcon}>
               {schema.tables.map((table) => (
                 <StyledTreeItem key={`${schema.name}-${table.name}`} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon}
                                 dummy={schemasRefresh ? '1' : ''}

@@ -10,6 +10,7 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import { FormControl } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
+import { useTranslation } from 'react-i18next';
 
 const Mode = {
   New : 0, Modify : 1
@@ -26,6 +27,7 @@ export default function ConnectionSettings(props) {
   const [passworderr, setPasswordErr] = React.useState(false);
   const [dbnameerr, setDbnameErr] = React.useState(false);
   const [message, setMessage] = React.useState(null);
+  const { t, i18n } = useTranslation();
   useEffect(() => {
     setMode(props.mode || '');
     setName(props.name || '');
@@ -51,7 +53,7 @@ export default function ConnectionSettings(props) {
     setPasswordErr((!password || !password.trim()) && (iserr = true));
     setDbnameErr((!dbname || !dbname.trim()) && (iserr = true));
     if (iserr) {
-      setMessage('値を入力してください。');
+      setMessage(t("Enter connection information"));
       return;
     }
     const ret = props.submit({mode: mode, currentname: props.name, name: name, userid: userid, password: password, dbname: dbname});
@@ -79,7 +81,7 @@ export default function ConnectionSettings(props) {
 
   return (
     <Dialog onClose={handleCancelDialog} open={props.open}>
-        <DialogTitle>{mode == Mode.New ? 'New ' : ''}Connection Settings</DialogTitle>
+        <DialogTitle>{mode == Mode.New ? t("New Connection Settings") : t("Connection Settings")}</DialogTitle>
         <FormControl required onSubmit={handleSubmit}>
           <DialogContent>
               <DialogContentText style={{color: 'red'}}>
@@ -87,22 +89,22 @@ export default function ConnectionSettings(props) {
               </DialogContentText>
               <Grid container spacing={2} columns={8}>
                 <Grid xs={8}>
-                  <TextField id="name" label="Connection Name" variant="standard" size="small" fullWidth required value={name} color={nameerr ? 'error' : 'primary'} onChange={handleChange}/>
+                  <TextField id="name" label={t("Connection Name")} variant="standard" size="small" fullWidth required value={name} color={nameerr ? 'error' : 'primary'} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
-                  <TextField id="userid" label="User Id" variant="standard" size="small" fullWidth required value={userid} color={useriderr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
+                  <TextField id="userid" label={t("User Id")} variant="standard" size="small" fullWidth required value={userid} color={useriderr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
-                  <TextField id="password" label="Password" variant="standard" size="small" fullWidth required type="password" value={password} color={passworderr ? 'error' : 'primary'} onChange={handleChange}/>
+                  <TextField id="password" label={t("Password")} variant="standard" size="small" fullWidth required type="password" value={password} color={passworderr ? 'error' : 'primary'} onChange={handleChange}/>
                 </Grid>
                 <Grid xs={8}>
-                  <TextField id="dbname" label="DataBase Name" variant="standard" size="small" fullWidth required value={dbname} color={dbnameerr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
+                  <TextField id="dbname" label={t("DataBase Name")} variant="standard" size="small" fullWidth required value={dbname} color={dbnameerr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
                 </Grid>
               </Grid>
           </DialogContent>
           <DialogActions>
-              <Button onClick={handleCancelDialog}>Cancel</Button>
-              <Button onClick={handleSubmit}>{mode == Mode.New ? 'Add' : 'Apply'}</Button>
+              <Button onClick={handleCancelDialog}>{t("Cancel")}</Button>
+              <Button onClick={handleSubmit}>{mode == Mode.New ? t("Add") : t("Apply")}</Button>
           </DialogActions>
         </FormControl>
     </Dialog>

@@ -2,6 +2,7 @@ import './App.css';
 import { DataGrid } from '@mui/x-data-grid';
 import React, { useState, useRef, useEffect } from "react";
 import { FormControl, TextField, Button, InputLabel, Select, MenuItem } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import MyTreeView from './MyTreeView';
 import MySplitter from './MySplitter';
 
@@ -14,6 +15,7 @@ function App(props) {
   const [schemasRefresh, setSchemasRefresh] = useState(false);
   const coldata = [];
   const rowdata = [];
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (localStorage.schemas) {
@@ -121,9 +123,9 @@ function App(props) {
       let resjson = await response.json();
       if (!response.ok) {
         if (response.status < 500) {
-          alert("エラーが発生しました。\n" + resjson['error']);
+          alert(t("An error has occurred") + "\n" + resjson['error']);
         } else {
-          alert("予期せぬエラーが発生しました。\n" + resjson['error']);
+          alert(t("An unexpected error has occurred") + "\n" + resjson['error']);
         }
         return;
       }
@@ -145,7 +147,7 @@ function App(props) {
       setRows(rowdata);
       setTimeout(() => setColumnEventHandler(), 500);
     } catch (e) {
-      alert('SQLの実行に失敗しました。');
+      alert(t("Execution failed on sql"));
       console.error(e);
     }
   }
@@ -179,12 +181,12 @@ function App(props) {
       <MySplitter/>
       <main className="App-main">
         <FormControl required fullWidth sx={{mb: 1}}>
-          <InputLabel id="connection-label">接続</InputLabel>
+          <InputLabel id="connection-label">{t("connections")}</InputLabel>
           <Select
             labelId="connection-label"
             id="connection"
             value={connection}
-            label="接続"
+            label={t("connections")}
             onChange={handleConnectionChange}
             style={{width: "10%", minWidth: "150px", textAlign: "left"}}
           >
@@ -198,7 +200,7 @@ function App(props) {
         </FormControl>
         <FormControl sx={{m: 1}}>
           <Button variant="contained" color="success" onClick={handleSubmit}>
-            execute
+          {t("execute")}
           </Button>
         </FormControl>
         <FormControl fullWidth sx={{mb: 1}}>
