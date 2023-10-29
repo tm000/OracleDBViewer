@@ -156,6 +156,10 @@ prepare_error:
                 strcpy(owner, uname);
                 char* tablename = (char*)malloc(strlen(tblname)+1);
                 strcpy(tablename, tblname);
+                char *cp;
+                if ((cp = strchr(tablename, ';'))) {
+                    *cp = '\0';
+                }
                 bindvars[0] = owner;
                 bindvars[1] = tablename;
             }
