@@ -32,7 +32,9 @@ public:
 
    void use(char *path, MyMiddlewareFunction func) {
       svr.use(path, [=](cex::Request* req, cex::Response* res, std::function<void()> next) {
-         func(req, res, next, &db);
+         bool donext = false;
+         func(req, res, [&donext]() {donext = true;}, &db);
+         if (donext) next();
       });
    }
 
@@ -50,7 +52,9 @@ public:
 
    void post(char *path, MyMiddlewareFunction func) {
       svr.post(path, [=](cex::Request* req, cex::Response* res, std::function<void()> next) {
-         func(req, res, next, &db);
+         bool donext = false;
+         func(req, res, [&donext]() {donext = true;}, &db);
+         if (donext) next();
       });
    }
 
@@ -83,33 +87,46 @@ void signal_handler(int signum)
 int main()
 {
    signal(SIGINT, signal_handler);
+
+   app.use("/api", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
+      res->setFlags(res->getFlags() | cex::Response::fCompressGZip);
+      // set CORS headers
+      res->set("Access-Control-Allow-Origin", "*");
+      res->set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res->set("Access-Control-Allow-Headers", "Content-Type");
+      next();
+   });
+
    app.post("/api", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
-      if (req->getBodyLength() > 0) {
-         auto bodystr = std::make_unique<char[]>(req->getBodyLength()+1);
-         strncpy(bodystr.get(), req->getBody(), req->getBodyLength());
-         auto jsonstr = json::parse(bodystr.get());
-         if (jsonstr.contains("sql") && jsonstr.contains("username") && jsonstr.contains("password") && jsonstr.contains("dbname")) {
-            JsonWriter writer;
-            int ret = db->connect(writer, jsonstr["username"].get<string>().c_str(),
-                                          jsonstr["password"].get<string>().c_str(),
-                                          jsonstr["dbname"].get<string>().c_str());
-            if (ret == 0) {
-               ret = db->execute(writer, jsonstr["sql"].get<string>().c_str());
-            };
-            // writer.save("updated_data.json");
-            res->setFlags(res->getFlags() | cex::Response::fCompressGZip);
-            res->set("Access-Control-Allow-Origin", "*");
-            res->set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            res->set("Access-Control-Allow-Headers", "Content-Type");
-            res->set("Content-Type", "application/json; charset=utf-8");
-            // printf("%s\n", writer.getJson().c_str());
-            res->end(writer.getJson().c_str(), strlen(writer.getJson().c_str()), ret == 0 ? 200 : ret == -1 ? 400 : 500);
-         } else
-            res->end(400);
+      if (req->getBodyLength() == 0) {
+         res->end(200);
          return;
       }
-      res->end(200);
+
+      auto bodystr = std::make_unique<char[]>(req->getBodyLength()+1);
+      strncpy(bodystr.get(), req->getBody(), req->getBodyLength());
+      auto jsonstr = json::parse(bodystr.get());
+      if (!jsonstr.contains("sql") ||
+         !jsonstr.contains("username") ||
+         !jsonstr.contains("password") ||
+         !jsonstr.contains("dbname")) {
+         res->end(400);
+         return;
+      }
+
+      JsonWriter writer;
+      int ret = db->connect(writer, jsonstr["username"].get<string>().c_str(),
+                                    jsonstr["password"].get<string>().c_str(),
+                                    jsonstr["dbname"].get<string>().c_str());
+      if (ret == 0) {
+         ret = db->execute(writer, jsonstr["sql"].get<string>().c_str());
+      };
+      res->set("Content-Type", "application/json; charset=utf-8");
+      res->end(writer.getJson().c_str(),
+               strlen(writer.getJson().c_str()),
+               ret == 0 ? 200 : ret == -1 ? 400 : 500);
    });
+
    app.use("/close", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
       db->disconnect();
       res->end(200);
