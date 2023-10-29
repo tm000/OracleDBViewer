@@ -7,3 +7,20 @@
 OracleDBViewer requires the following libraries:
 
 libcex
+
+## Installing
+### server
+1. cd server
+2. make
+### client
+1. cd client
+2. npm install
+
+## How to use
+### server
+1. cd server
+2. ./main
+### client
+1. cd client
+2. npm run start
+3. open browser http://localhost:3000
