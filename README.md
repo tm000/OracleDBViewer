@@ -10,17 +10,27 @@ libcex
 
 ## Installing
 ### server
-1. cd server
-2. make
+
+```sh
+$ cd server
+$ make
+```
 ### client
-1. cd client
-2. npm install
+```sh
+$ cd client
+$ npm install
+```
 
 ## How to use
 ### server
-1. cd server
-2. ./main
+```sh
+$ cd server
+$ ./main
+```
 ### client
-1. cd client
-2. npm run start
-3. open browser http://localhost:3000
+```sh
+$ cd client
+$ npm run start
+```
+open browser http://localhost:3000
+
