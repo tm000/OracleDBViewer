@@ -13,6 +13,7 @@ function App(props) {
   const [columns, setColumns] = useState([]);
   const [schemas, setSchemas] = useState([]);
   const [schemasRefresh, setSchemasRefresh] = useState(false);
+  const [loading, setLoading] = useState(false);
   const coldata = [];
   const rowdata = [];
   const { t, i18n } = useTranslation();
@@ -111,6 +112,7 @@ function App(props) {
       return;
     }
 
+    setLoading(true);
     const schema = schemas.find(s => s.name == connection);
     try {
       const response = await fetch(process.env.REACT_APP_API_URL, {
@@ -124,6 +126,7 @@ function App(props) {
       });
       let resjson = await response.json();
       if (!response.ok) {
+        setLoading(false);
         if (response.status < 500) {
           alert(t("An error has occurred") + "\n" + resjson['error']);
         } else {
@@ -148,7 +151,9 @@ function App(props) {
       setColumns(coldata);
       setRows(rowdata);
       setTimeout(() => setColumnEventHandler(), 500);
+      setLoading(false);
     } catch (e) {
+      setLoading(false);
       alert(t("Execution failed on sql"));
       console.error(e);
     }
@@ -173,6 +178,11 @@ function App(props) {
 
   return (
     <div className="App">
+      {loading &&
+        <div className="loader-container">
+        <p className="icon-license">Icons by Icons8</p>
+      </div>
+      }
       <header className="App-header">
           Oracle Database Viewer
       </header>
