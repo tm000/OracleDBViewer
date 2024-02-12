@@ -103,9 +103,11 @@ function App(props) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!connection || !connection.trim()) {
+      alert(t("Select connection name"));
       return;
     }
     if (!sql || !sql.trim()) {
+      alert(t("Enter SQL"));
       return;
     }
 

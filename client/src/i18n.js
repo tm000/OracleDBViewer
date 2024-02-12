@@ -54,6 +54,8 @@ const resources = {
       "Delete confirm message": "本当に削除してよろしいですか？",
       "Failed to get table list": "テーブル一覧の取得に失敗しました。",
       "Already exists": "はすでに存在します。",
+      "Select connection name": "接続名を選択してください。",
+      "Enter SQL": "SQLを入力してください。",
     }
   }
 };
