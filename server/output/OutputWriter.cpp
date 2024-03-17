@@ -1,44 +1,71 @@
 #include <stdint.h>
 #include <string.h>
 #include <fstream>
-#include <nlohmann/json.hpp>
 #include "OutputWriter.h"
 
 using namespace std;
 
 void JsonWriter::processColumnHedaer(vector<string>& headers) {
-    vector<string> trimmed;
+    output.clear();
+    errors.clear();
+    output.shrink_to_fit();
+    errors.shrink_to_fit();
+    output.push_back("{\"header\":[");
     for (int i = 0; i < headers.size(); i++) {
-        trimmed.push_back(trim(headers.at(i)));
+        if (i==0)
+            output.push_back("\"");
+        else
+            output.push_back(",\"");
+        trim(headers.at(i));
+        const char* trimmed = headers.at(i).c_str();
+        char* str = new char[strlen(trimmed)+1];
+        strcpy(str, trimmed);
+        output.push_back(str);
+        output.push_back("\"");
     }
-    output["header"] = nlohmann::json(trimmed);
-    output["body"] = lines;
+    output.push_back("],\"body\":[");
+    first_record = true;
+    json_freezed = false;
 };
 
 void JsonWriter::processBody(SQLDA* select_dp) {
-    union {
-        uint32_t u32;
-        uint8_t bytes[4];
-    } ms_converter;
-    vector<string> line;
-    for (int i = 0; i < select_dp->F; i++) {
+    if (first_record) {
+        output.push_back("[");
+        first_record = false;
+    } else
+        output.push_back(",[");
+
+    bool first_column = true;
+    for (int i = 0; i < select_dp->F; i++)
+    {
+        if (first_column) {
+            output.push_back("\"");
+            first_column = false;
+        } else
+            output.push_back(",\"");
+
         if (*select_dp->I[i] < 0)
-            if (select_dp->T[i] == 4) 
-                line.push_back("");
+            if (select_dp->T[i] == 4)
+                output.push_back(""); // null
             else
-                line.push_back("");
+                output.push_back(""); // null
         else
-            if (select_dp->T[i] == 3)           /* int datatype */
-                line.push_back(std::to_string(*(int *)select_dp->V[i]));
-            else if (select_dp->T[i] == 4)      /* float datatype */
-                line.push_back(std::to_string(*(float *)select_dp->V[i]));
-            else {                              /* character string */
+            if (select_dp->T[i] == 3) {         /* int datatype */
+                std::string str = std::to_string(*(int *)select_dp->V[i]);
+                output.push_back(str);
+            } else if (select_dp->T[i] == 4) {  /* float datatype */
+                std::string str = std::to_string(*(float *)select_dp->V[i]);
+                output.push_back(str);
+            } else {                            /* character string */
                 select_dp->V[i][select_dp->L[i]] = '\0';
-                line.push_back(rtrimc(select_dp->V[i]));
+                std::string str(select_dp->V[i]);
+                rtrim(str);
+                escape_json(str);
+                output.push_back(str);
             }
+        output.push_back("\"");
     }
-    lines.push_back(line);
-    output["body"] = lines;
+    output.push_back("]");
 };
 
 void JsonWriter::error(char* msg, ...) {
@@ -47,29 +74,48 @@ void JsonWriter::error(char* msg, ...) {
     va_start(args, msg);
     vsprintf(buf, msg, args);
     va_end(args);
-    if (!output.contains("error")) {
-        vector<string> errors;
-        errors.push_back(rtrimc(buf));
-        output["error"] = errors;
-    } else {
-        auto errors = output["error"];
-        errors.push_back(rtrimc(buf));
-        output["error"] = errors;
+    std::string str(buf);
+    rtrim(str);
+    escape_json(str);
+    errors.push_back(str);
+}
+
+void JsonWriter::freezeJson() {
+    if (json_freezed) return;
+
+    if (errors.size() > 0) {
+        output.clear();
+        output.shrink_to_fit();
+        output.push_back("{\"error\":[");
+        for(int i = 0; i < errors.size(); i++) {
+            if (i > 0)
+                output.push_back(",\"");
+            else
+                output.push_back("\"");
+            output.push_back(errors[i].c_str());
+            output.push_back("\"");
+        }
     }
+
+    output.push_back("]}");
+    json_str = join(output);
+    json_freezed = true;
 }
 
 void JsonWriter::save(char* path) {
+    freezeJson();
     std::ofstream outputFile(path);
-    outputFile << output.dump(4);  // 4 is the indentation level
+    outputFile << json_str;
     outputFile.close();
 }
 
 string JsonWriter::getJson() {
-    return output.dump().c_str();
+    freezeJson();
+    return json_str;
 }
 
 void PrintWriter::processColumnHedaer(vector<string>& headers) {
-    
+
 };
 void PrintWriter::processBody(SQLDA* select_dp) {
     for (int i = 0; i < select_dp->F; i++)

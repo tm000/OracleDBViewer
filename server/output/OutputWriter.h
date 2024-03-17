@@ -4,7 +4,8 @@
 #define SQLCA_NONE 1
 #define ORACA_NONE 1
 #include <sqlda.h>
-#include <nlohmann/json.hpp>
+#include <vector>
+#include <algorithm>
 
 static inline std::string ltrim(std::string &s)
 {
@@ -26,8 +27,8 @@ static inline std::string rtrim(std::string &s)
 
 static inline std::string trim(std::string &s)
 {
-    std::string tmp = ltrim(s);
-    return rtrim(tmp); 
+    ltrim(s);
+    return rtrim(s); 
 }
 
 static inline char* rtrimc(char *s)
@@ -35,6 +36,64 @@ static inline char* rtrimc(char *s)
     char* last = s + strlen(s);
     while (*(--last) == ' ');
     *(last+1) = '\0';
+    return s;
+}
+
+static std::string join(const std::vector<std::string>& v, const char* delim = 0) {
+    std::string s;
+    if (!v.empty()) {
+        s += v[0];
+        for (decltype(v.size()) i = 1, c = v.size(); i < c; ++i) {
+            if (delim) s += delim;
+            s += v[i];
+        }
+    }
+    return s;
+}
+
+static inline std::string escape_json(std::string &s)
+{
+    /*
+        \b  Backspace (ascii code 08)
+        \f  Form feed (ascii code 0C)
+        \n  New line
+        \r  Carriage return
+        \t  Tab
+        \"  Double quote
+        \\  Backslash character
+    */
+    char chars[] = "\b\f\n\r\t\"\\";
+    for (unsigned int i = 0; i < s.size(); ++i)
+        switch (s[i]) {
+            case '\b':
+                s.replace(i, 1, "\\b");
+                ++i;
+                break;
+            case '\f':
+                s.replace(i, 1, "\\f");
+                ++i;
+                break;
+            case '\n':
+                s.replace(i, 1, "\\n");
+                ++i;
+                break;
+            case '\r':
+                s.replace(i, 1, "\\r");
+                ++i;
+                break;
+            case '\t':
+                s.replace(i, 1, "\\t");
+                ++i;
+                break;
+            case '\"':
+                s.replace(i, 1, "\\\"");
+                ++i;
+                break;
+            case '\\':
+                s.replace(i, 1, "\\\\");
+                ++i;
+                break;
+        }
     return s;
 }
 
@@ -47,8 +106,13 @@ public:
 
 class JsonWriter : public OutputWriter {
 private:
-    nlohmann::json output;
-    std::vector<nlohmann::json> lines;
+    std::vector<std::string> output;
+    std::vector<std::string> errors;
+    bool first_record = true;
+    bool json_freezed = false;
+    std::string json_str;
+
+    void freezeJson();
 public:
     void processColumnHedaer(std::vector<std::string>& headers);
 
