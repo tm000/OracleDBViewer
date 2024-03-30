@@ -17,9 +17,7 @@ void JsonWriter::processColumnHedaer(vector<string>& headers) {
         else
             output.push_back(",\"");
         trim(headers.at(i));
-        const char* trimmed = headers.at(i).c_str();
-        char* str = new char[strlen(trimmed)+1];
-        strcpy(str, trimmed);
+        string str(headers.at(i).c_str());
         output.push_back(str);
         output.push_back("\"");
     }
