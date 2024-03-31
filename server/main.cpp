@@ -172,9 +172,11 @@ int main()
    });
   
    // start server
-   std::cout << "Server started at 127.0.0.1:5555\n" << std::endl;
+   const char* portstr = std::getenv("ORACLE_DB_VIEWER_PORT");
+   int port = portstr ? atoi(portstr) : 5555;
+   std::cout << "Server started at 127.0.0.1::" << port << std::endl;
 
-   app.listen("0.0.0.0", 5555, true);
+   app.listen("0.0.0.0", port, true);
 
    return 0;   
 }
