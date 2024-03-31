@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void JsonWriter::processColumnHedaer(vector<string>& headers) {
+void JsonWriter::processColumnHeader(vector<string>& headers) {
     output.clear();
     errors.clear();
     output.shrink_to_fit();
@@ -112,7 +112,7 @@ string JsonWriter::getJson() {
     return json_str;
 }
 
-void PrintWriter::processColumnHedaer(vector<string>& headers) {
+void PrintWriter::processColumnHeader(vector<string>& headers) {
 
 };
 void PrintWriter::processBody(SQLDA* select_dp) {

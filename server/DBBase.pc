@@ -611,7 +611,7 @@ sql_error:
 
         headers.push_back(title);
     }
-    writer.processColumnHedaer(headers);
+    writer.processColumnHeader(headers);
 
     /* FETCH each row selected and print the column values. */
     EXEC SQL WHENEVER NOT FOUND GOTO end_select_loop;

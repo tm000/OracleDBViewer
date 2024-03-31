@@ -99,7 +99,7 @@ static inline std::string escape_json(std::string &s)
 
 class OutputWriter {
 public:
-    virtual void processColumnHedaer(std::vector<std::string>& headers) = 0;
+    virtual void processColumnHeader(std::vector<std::string>& headers) = 0;
     virtual void processBody(SQLDA* select_dp) = 0;
     virtual void error(char* msg, ...) = 0;
 };
@@ -114,7 +114,7 @@ private:
 
     void freezeJson();
 public:
-    void processColumnHedaer(std::vector<std::string>& headers);
+    void processColumnHeader(std::vector<std::string>& headers);
 
     void processBody(SQLDA* select_dp);
 
@@ -127,7 +127,7 @@ public:
 
 class PrintWriter : public OutputWriter {
 public:
-    void processColumnHedaer(std::vector<std::string>& headers);
+    void processColumnHeader(std::vector<std::string>& headers);
     void processBody(SQLDA* select_dp);
 };
 
