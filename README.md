@@ -6,7 +6,8 @@
 ## Dependencies
 OracleDBViewer requires the following libraries:
 
-libcex
+* [libcex](https://github.com/patrickjane/libcex)
+* [nlohmann/json](https://github.com/nlohmann/json)
 
 ## Installing
 ### server
