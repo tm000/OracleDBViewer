@@ -14,6 +14,7 @@ OracleDBViewer requires the following libraries:
 
 ```sh
 $ cd server
+$ export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/usr/local/lib:/usr/local/include
 $ make
 ```
 ### client
