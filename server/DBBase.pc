@@ -629,8 +629,15 @@ end_select_loop:
 void sql_error(OutputWriter& writer)
 {
     /* ORACLE error handler */
-    fprintf(stderr, "\n\n%.100s\n",sqlca.sqlerrm.sqlerrmc);
-    writer.error(sqlca.sqlerrm.sqlerrmc);
+    unsigned char fullmsg[200];
+    size_t buf_len, msg_len; 
+ 
+    buf_len = sizeof (fullmsg);
+    sqlglm(fullmsg, &buf_len, &msg_len);
+    if (msg_len < buf_len) fullmsg[msg_len] = '\0';
+
+    fprintf(stderr, "\n\n%s\n", fullmsg);
+    writer.error((char*)fullmsg);
     if (parse_flag) {
         fprintf(stderr, "Parse error at character offset %d in SQL statement.\n",
             sqlca.sqlerrd[4]);

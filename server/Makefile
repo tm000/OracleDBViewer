@@ -46,6 +46,7 @@ CLNCACHE=cleancache
 CACHEDIR=SunWS_cachea
 MAKE=make
 MAKEFILE=Makefile
+DBBASE=DBBase
 PROCDEMO=main
 
 PROC=$(ICSDKHOME)proc
@@ -61,15 +62,15 @@ PRECOMPPUBH=$(ICSDKHOME)include
 OPTIMIZE=-O2
 LDPATHFLAG=-L
 SPFLAGS=-DLINUX -D_GNU_SOURCE -D_LARGEFILE64_SOURCE=1 -D_LARGEFILE_SOURCE=1 -DSLTS_ENABLE -DSLMXMX_ENABLE -D_REENTRANT -DNS_THREADS
-CCFLAGS= -fPIC -DPRECOMP -Wno-write-strings $(LDFLAGS)
+CCFLAGS= -fPIC -DPRECOMP -Wno-write-strings
 LDFLAGS=-g
 LPFLAGS=
 GFLAG=
 CDEBUG=
-USRFLAGS=-I$(ORACLE_HOME)/ -I$(ORACLE_HOME)/precomp/public -I$(ORACLE_HOME)/rdbms/public -I$(ORACLE_HOME)/plsql/include -I/usr/local/include/ -L/usr/local/lib -L$(ORACLE_HOME)/lib -L$(ORACLE_HOME)/precomp/lib -L$(ORACLE_HOME)/sdk/include/ -l cex -l event -l event_openssl -l event_pthreads -l event_extra -l event_core -l evhtp -lssl -L/usr/lib64 -lz -ldl -pthread -lcrypto
+USRFLAGS=-I$(ORACLE_HOME)/precomp/public -I$(ORACLE_HOME)/rdbms/public -L$(ORACLE_HOME)/lib -l cex -l event -l event_openssl -l event_pthreads -l event_extra -l event_core -l evhtp -lssl -L/usr/lib64 -lz -ldl -pthread -lcrypto
 ICLIBPATH=$(LDPATHFLAG)$(ICLIBHOME)
 PFLAGS=$(CCINCLUDES) $(SPFLAGS) $(LPFLAGS)
-CFLAGS=$(GFLAG) $(OPTIMIZE) $(CDEBUG) $(CCFLAGS) $(PFLAGS) $(PROLDLIBS) $(USRFLAGS)
+CFLAGS=$(GFLAG) $(OPTIMIZE) $(CDEBUG) $(CCFLAGS) $(PFLAGS) $(USRFLAGS)
 
 # Libraries.
 PROLDLIBS=$(LDCLIENTLIBS) $(THREADLIBS)
@@ -95,8 +96,8 @@ all: clean $(PROCDEMO)
 %.cpp : %.pc
 	$(MAKE) -f $(MAKEFILE) PROCFLAGS="CODE=CPP CPP_SUFFIX=cpp SQLCHECK=SEMANTICS" PCCSRC=$* I_SYM=include= pc1
 
-$(PROCDEMO): DBBase.cpp
-	$(MAKE) -f $(MAKEFILE) build OBJS=$@.o EXE="$@ DBBase.cpp output/OutputWriter.cpp"
+$(PROCDEMO): $(DBBASE).cpp
+	$(MAKE) -f $(MAKEFILE) build OBJS=$@.o EXE="$@ $(DBBASE).cpp output/OutputWriter.cpp"
 	
 build: $(CLNCACHE) $(OBJS)
 	$(DEMO_PROC_BUILD)
@@ -125,7 +126,7 @@ pc1:
 #-----------------------------------------------------------------------------
 # Clean up all executables, *.o and generated *.c files
 clean: $(CLNCACHE)
-	$(REMOVE) $(PROCDEMO) $(PROCDEMO).o $(PROCDEMO).lis DBBase.cpp DBBase.lis
+	$(REMOVE) $(PROCDEMO) $(PROCDEMO).o $(DBBASE).cpp $(DBBASE).lis
 
 cleancache:
 	$(REMOVE) $(CACHEDIR)
