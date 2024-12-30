@@ -1,14 +1,8 @@
 import * as React from 'react';
 import { useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import { FormControl } from '@mui/material';
+import { TextField, Checkbox, InputLabel, Select, MenuItem, FormControlLabel, Button,
+        Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import { useTranslation } from 'react-i18next';
 
@@ -22,6 +16,7 @@ export default function ConnectionSettings(props) {
   const [userid, setUserId] = React.useState(null);
   const [password, setPassword] = React.useState(null);
   const [dbname, setDbname] = React.useState(null);
+  const [role, setRole] = React.useState(null);
   const [nameerr, setNameErr] = React.useState(false);
   const [useriderr, setUserIdErr] = React.useState(false);
   const [passworderr, setPasswordErr] = React.useState(false);
@@ -34,6 +29,7 @@ export default function ConnectionSettings(props) {
     setUserId(props.userid || '');
     setPassword(props.password || '');
     setDbname(props.dbname || '');
+    setRole(props.role || 'default');
     setNameErr(false);
     setUserIdErr(false);
     setPasswordErr(false);
@@ -56,7 +52,7 @@ export default function ConnectionSettings(props) {
       setMessage(t("Enter connection information"));
       return;
     }
-    const ret = props.submit({mode: mode, currentname: props.name, name: name, userid: userid, password: password, dbname: dbname});
+    const ret = props.submit({mode: mode, currentname: props.name, name: name, userid: userid, password: password, dbname: dbname, role: role});
     if (ret) {
       setMessage(ret);
     }
@@ -76,7 +72,7 @@ export default function ConnectionSettings(props) {
       case 'dbname':
         setDbname(e.target.value);
         break;
-    }
+      }
   }
 
   return (
@@ -99,6 +95,23 @@ export default function ConnectionSettings(props) {
                 </Grid>
                 <Grid xs={8}>
                   <TextField id="dbname" label={t("DataBase Name")} variant="standard" size="small" fullWidth required value={dbname} color={dbnameerr ? 'error' : 'primary'} style={{imeMode: 'inactive'}} onChange={handleChange}/>
+                </Grid>
+                <Grid xs={8}>
+                  <FormControl size="small" variant="standard" >
+                    <InputLabel id="role-label">{t("Role")}</InputLabel>
+                    <Select
+                      labelId="role-label"
+                      id="role"
+                      value={role}
+                      label={t("Role")}
+                      onChange={(e) => setRole(e.target.value)}
+                      style={{width: "10%", minWidth: "150px", textAlign: "left"}}
+                    >
+                      <MenuItem value="default">{t("default")}</MenuItem>
+                      <MenuItem value="sysdba">SYSDBA</MenuItem>
+                      <MenuItem value="sysoper">SYSOPER</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
           </DialogContent>

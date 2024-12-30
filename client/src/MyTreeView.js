@@ -16,6 +16,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import {Mode as ConnectionSettingsMode, default as ConnectionSettings} from './ConnectionSettings';
 import { useTranslation } from 'react-i18next';
+import { Schema } from './Schema';
 
 const StyledTreeItemRoot = styled(TreeItem)(({ theme }) => ({
   color: theme.palette.text.secondary,
@@ -137,22 +138,22 @@ export default function MyTreeView(props) {
     setAnchorEl(null);
   };
 
-  const handleSchemaClick = async (event) => {
+  const handleObjectClick = async (event) => {
     event.preventDefault();
-    let e = event.target;
-    while (e && e.nodeName.toUpperCase() != 'LI') e = e.parentNode;
-    const connname = e.getAttribute('data-connname');
-    const schema = schemas.find(s => s.name == connname);
-    if (schema.tables.length > 0) return;
+    let menuObjElm = new MenuObjectElement(event.target);
+    const schema = schemas.find(s => s.name == menuObjElm.parent.getAttribute('data-connname'));
+    const schemaObject = schema[menuObjElm.objectName];
+    if (schemaObject.length > 0) return;
 
     try {
       const response = await fetch(process.env.REACT_APP_API_URL, {
         method: 'POST',
         body: JSON.stringify({
-          sql: 'SELECT TABLE_NAME FROM USER_TABLES',
+          sql: schemaObject.selectSql,
           username: schema.userid,
           password: schema.password,
-          dbname: schema.dbname
+          dbname: schema.dbname,
+          role: schema.role
         })
       });
       let resjson = await response.json();
@@ -161,12 +162,13 @@ export default function MyTreeView(props) {
         return;
       }
       resjson['body'].forEach(data => {
-        schema.tables.push({name: data[0]});
+        schemaObject.push({name: data[0]});
       });
     } catch (e) {
       alert(t("Failed to get table list"));
       console.error(e);
-    }
+    }  
+
     props.updateSchema(schemas);
     setSchemasRefresh(!schemasRefresh);
   };
@@ -180,39 +182,51 @@ export default function MyTreeView(props) {
 
   const handleClickOpen = (mode, connname) => {
     if (mode == ConnectionSettingsMode.New) {
-      setDialogProps({mode: mode, name: '', userid: '', password: '', dbname: ''});
+      setDialogProps({mode: mode, name: '', userid: '', password: '', dbname: '', role: ''});
     } else {
       const schema = schemas.find(s => s.name == connname);
-      setDialogProps({mode: mode, name: connname, userid: schema.userid, password: schema.password, dbname: schema.dbname});
+      setDialogProps({mode: mode, name: connname, userid: schema.userid, password: schema.password, dbname: schema.dbname, role: schema.role});
     }
     setDialogOpen(true);
   };
 
   const handleSettingSubmit = (setting) => {
+    let schema;
     if (setting.mode == ConnectionSettingsMode.New) {
       const exists = schemas.find(s => s.name == setting.name);
       if (exists) {
         return `${t("Connection Name")}'${setting.name}'${t("Already exists")}`;
       } else {
-        schemas.push({name: setting.name, userid: setting.userid, password: setting.password, dbname: setting.dbname, tables: []});
-        props.updateSchema(schemas);
+        schema = new Schema();
+        schemas.push(schema);
       }
     } else {
-      const schema = schemas.find(s => s.name == setting.currentname);
-      schema.name = setting.name;
-      schema.userid = setting.userid;
-      schema.password = setting.password;
-      schema.dbname = setting.dbname;
-      props.updateSchema(schemas);
+      schema = schemas.find(s => s.name == setting.currentname);
     }
+    schema.name = setting.name;
+    schema.userid = setting.userid;
+    schema.password = setting.password;
+    schema.dbname = setting.dbname;
+    schema.role = setting.role;
+    props.updateSchema(schemas);
 
     saveSchemas();
     setDialogOpen(false);
   };
 
+  function MenuObjectElement(element) {
+    while (element && element.nodeName.toUpperCase() != 'LI') element = element.parentNode;
+    const elmId = element.getAttribute('id');
+    this.objectName = elmId.match(/#(?<key>\w+)/)[1];
+
+    element = element.parentNode;
+    while (element && element.nodeName.toUpperCase() != 'LI') element = element.parentNode;
+    this.parent = element;
+  }
+
   function saveSchemas() {
-    // store schemas exclude tables
-    localStorage.schemas = JSON.stringify(schemas.map(s => {return {name: s.name, userid: s.userid, password: s.password, dbname: s.dbname, tables: []};}));
+    // store schemas excluding elements belonging to database
+    localStorage.schemas = JSON.stringify(schemas.map(s => {return {name: s.name, userid: s.userid, password: s.password, dbname: s.dbname, role: s.role};}));
   }
 
   return (
@@ -233,16 +247,20 @@ export default function MyTreeView(props) {
                           aria-controls="schema-menu"
                           aria-expanded={open ? 'true' : undefined} aria-haspopup="true"
                           data-connname={schema.name}
-                          onClick={handleSchemaClick}
                           onContextMenu={handlePopup}>
-            <StyledTreeItem nodeId={`${schema.name}-#tables`} labelText={t("tables")} labelIcon={DatasetIcon}>
-              {schema.tables.map((table) => (
-                <StyledTreeItem key={`${schema.name}-${table.name}`} nodeId={`${schema.name}-${table.name}`} labelText={table.name} labelIcon={ViewListIcon}
-                                dummy={schemasRefresh ? '1' : ''}
-                                onDoubleClick={handleTableDblClick}>
+            {schema.objects.map(([key, values]) => (
+                <StyledTreeItem key={`${schema.name}-#${key}`} nodeId={`${schema.name}-#${key}`} labelText={t(key)} labelIcon={DatasetIcon}
+                          aria-controls="object-menu"
+                          aria-expanded={open ? 'true' : undefined} aria-haspopup="true"
+                          onClick={handleObjectClick}>
+                  {values.map((value) => (
+                    <StyledTreeItem key={`${schema.name}-${value.name}`} nodeId={`${schema.name}-${value.name}`} labelText={value.name} labelIcon={ViewListIcon}
+                                    dummy={schemasRefresh ? '1' : ''}
+                                    onDoubleClick={handleTableDblClick}>
+                    </StyledTreeItem>
+                  ))}
                 </StyledTreeItem>
               ))}
-            </StyledTreeItem>
           </StyledTreeItem>
         ))}
       </StyledTreeItem>

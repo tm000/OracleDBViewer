@@ -10,6 +10,7 @@ struct connection {
     char* uname;
     char* pswd;
     char* dbname;
+    char* role;
 };
 
 class DBBase
@@ -21,7 +22,7 @@ public:
     DBBase();
     virtual ~DBBase();
 
-    int connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname);
+    int connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname, const char* role);
 
     void disconnect();
 

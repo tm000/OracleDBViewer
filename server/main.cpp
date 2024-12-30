@@ -109,7 +109,9 @@ int main()
       if (!jsonstr.contains("sql") ||
          !jsonstr.contains("username") ||
          !jsonstr.contains("password") ||
-         !jsonstr.contains("dbname")) {
+         !jsonstr.contains("dbname") ||
+         !jsonstr.contains("role")) {
+         fprintf(stderr, "\nInvalid argument\n");
          res->end(400);
          return;
       }
@@ -117,7 +119,8 @@ int main()
       JsonWriter writer;
       int ret = db->connect(writer, jsonstr["username"].get<string>().c_str(),
                                     jsonstr["password"].get<string>().c_str(),
-                                    jsonstr["dbname"].get<string>().c_str());
+                                    jsonstr["dbname"].get<string>().c_str(),
+                                    jsonstr["role"].get<string>().c_str());
       if (ret == 0) {
          ret = db->execute(writer, jsonstr["sql"].get<string>().c_str());
       };

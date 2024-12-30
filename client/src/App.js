@@ -5,6 +5,7 @@ import { FormControl, TextField, Button, InputLabel, Select, MenuItem } from '@m
 import { useTranslation } from 'react-i18next';
 import MyTreeView from './MyTreeView';
 import MySplitter from './MySplitter';
+import { Schemas } from './Schema';
 
 function App(props) {
   const [connection, setConnection] = useState('');
@@ -19,12 +20,9 @@ function App(props) {
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
-    if (localStorage.schemas) {
-      // load schemas in localStorge
-      setSchemas(JSON.parse(localStorage.schemas));
-    } else {
-      setSchemas([]);
-    }
+    let schemas = new Schemas();
+    schemas.loadFromLocalStorage();
+    setSchemas(schemas);
   }, []);
 
   let isDrug = false;
@@ -121,7 +119,8 @@ function App(props) {
           sql: sql,
           username: schema.userid,
           password: schema.password,
-          dbname: schema.dbname
+          dbname: schema.dbname,
+          role: schema.role
         })
       });
       let resjson = await response.json();

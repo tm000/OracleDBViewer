@@ -77,7 +77,7 @@ int parse_flag = 0;
 
 int describe_flg = 0;
 
-int connect_open(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
+int connect_open(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname, const char* role)
 {
     /* Connect to ORACLE. */
     username.len = strlen(strcpy((char *)username.arr, uname));
@@ -89,7 +89,13 @@ int connect_open(OutputWriter& writer, const char* uname, const char* pswd, cons
     /* give the database connection a unique name */
     EXEC SQL DECLARE DB_NAME DATABASE;
 
-    EXEC SQL CONNECT :username IDENTIFIED BY :password AT DB_NAME USING :db_string;
+    if (strcmp(role, "sysdba") == 0) {
+        EXEC SQL CONNECT :username IDENTIFIED BY :password AT DB_NAME USING :db_string IN SYSDBA MODE;
+    } else if (strcmp(role, "sysoper") == 0) {
+        EXEC SQL CONNECT :username IDENTIFIED BY :password AT DB_NAME USING :db_string IN SYSOPER MODE;
+    } else {
+        EXEC SQL CONNECT :username IDENTIFIED BY :password AT DB_NAME USING :db_string;
+    }
 
 sql_error:
     if (sqlca.sqlcode < 0) {
@@ -657,26 +663,31 @@ DBBase::~DBBase() {
     free(current.uname);
     free(current.pswd);
     free(current.dbname);
+    free(current.role);
 }
 
-int DBBase::connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname)
+int DBBase::connect(OutputWriter& writer, const char* uname, const char* pswd, const char* dbname, const char* role)
 {
     if (isDBOpen) {
-        if (strcmp(uname, current.uname) == 0 && strcmp(pswd, current.pswd) == 0 && strcmp(dbname, current.dbname) == 0) return 0;
+        if (strcmp(uname, current.uname) == 0 && strcmp(pswd, current.pswd) == 0
+            && strcmp(dbname, current.dbname) == 0 && strcmp(role, current.role) == 0) return 0;
         disconnect();
     }
 
-    if (connect_open(writer, uname, pswd, dbname) == 0) {
+    if (connect_open(writer, uname, pswd, dbname, role) == 0) {
         isDBOpen = true;
         free(current.uname);
         free(current.pswd);
         free(current.dbname);
+        free(current.role);
         current.uname = (char*)malloc(strlen(uname));
         current.pswd = (char*)malloc(strlen(pswd));
         current.dbname = (char*)malloc(strlen(dbname));
+        current.role = (char*)malloc(strlen(role));
         strcpy(current.uname, uname);
         strcpy(current.pswd, pswd);
         strcpy(current.dbname, dbname);
+        strcpy(current.role, role);
         printf("\nConnected to ORACLE as user: %s\n", username.arr);
     }
 
