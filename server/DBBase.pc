@@ -6,12 +6,11 @@
 #include <iostream>
 #include "DBBase.h"
 #include "output/OutputWriter.h"
+#include "util/StringUtil.h"
 
 #define UNAME_LEN      20
 #define PWD_LEN        11
 #define DBSTR_LEN      20
-
-using namespace std;
 
 /*
 * Use the precompiler typedef'ing capability to create
@@ -152,7 +151,7 @@ prepare_error:
             tblname++;
             char** tmp = (char**)realloc(bindvars, sizeof(char*)*2);
             if (tmp == nullptr) {
-                fprintf(stderr, "\nMemory allocation error\n");
+                std::cerr << "Memory allocation error" << std::endl;
                 writer.error("Memory allocation error");
                 ret = -2;
                 goto sql_error;
@@ -278,8 +277,7 @@ SQLDA** alloc_descriptors(OutputWriter& writer, int size, int max_vname_len, int
        SQLSQLDAAlloc(SQL_SINGLE_RCTX, size, max_vname_len, max_iname_len)) == 
          (SQLDA *) 0)
     {
-        fprintf(stderr,
-            "Cannot allocate memory for bind descriptor.");
+        std::cerr << "Cannot allocate memory for bind descriptor." << std::endl;
         writer.error("Cannot allocate memory for select descriptor.");
         return ret;
     }
@@ -288,8 +286,7 @@ SQLDA** alloc_descriptors(OutputWriter& writer, int size, int max_vname_len, int
         SQLSQLDAAlloc (SQL_SINGLE_RCTX, size, max_vname_len, (size_t)0)) == 
            (SQLDA *) 0)
     {
-        fprintf(stderr,
-            "Cannot allocate memory for select descriptor.");
+        std::cerr << "Cannot allocate memory for select descriptor." << std::endl;
         writer.error("Cannot allocate memory for select descriptor.");
         return ret;
     }
@@ -350,8 +347,7 @@ int set_bind_variables(OutputWriter& writer, char *bindvars[], SQLDA* bind_dp, S
        than originally allocated by SQLSQLDAAlloc(). */
     if (bind_dp->F < 0)
     {
-        fprintf(stderr,"\nToo many bind variables (%d), maximum is %d\n.",
-                    -bind_dp->F, MAX_ITEMS);
+        std::cerr << "Too many bind variables (" << -bind_dp->F << "), maximum is " << MAX_ITEMS << "." << std::endl;
         writer.error("Too many bind variables (%d), maximum is %d.", -bind_dp->F, MAX_ITEMS);
         return -1;
     }
@@ -455,8 +451,7 @@ sql_error:
        items than originally allocated by SQLSQLDAAlloc(). */
     if (select_dp->F < 0)
     {
-        fprintf(stderr, "\nToo many select-list items (%d), maximum is %d\n",
-                -(select_dp->F), MAX_ITEMS);
+        std::cerr << "Too many select-list items (" << -select_dp->F << "), maximum is " << MAX_ITEMS << "." << std::endl;
         writer.error("Too many select-list items (%d), maximum is %d",
                 -(select_dp->F), MAX_ITEMS);
         return -1;
@@ -501,7 +496,7 @@ sql_error:
 
        */
     
-    vector<string> headers;
+    std::vector<std::string> headers;
     for (i = 0; i < select_dp->F; i++)
     {
         char title[MAX_VNAME_LEN]; 
@@ -635,18 +630,16 @@ end_select_loop:
 void sql_error(OutputWriter& writer)
 {
     /* ORACLE error handler */
-    unsigned char fullmsg[200];
-    size_t buf_len, msg_len; 
- 
-    buf_len = sizeof (fullmsg);
-    sqlglm(fullmsg, &buf_len, &msg_len);
-    if (msg_len < buf_len) fullmsg[msg_len] = '\0';
+    std::string fullmsg(256, '\0');
+    size_t buf_len = fullmsg.size(), msg_len;
 
-    fprintf(stderr, "\n\n%s\n", fullmsg);
-    writer.error((char*)fullmsg);
+    sqlglm(reinterpret_cast<unsigned char*>(&fullmsg[0]), &buf_len, &msg_len);
+    fullmsg.resize(msg_len);
+
+    std::cerr << std::endl << fullmsg << std::endl;
+    writer.error(fullmsg.c_str());
     if (parse_flag) {
-        fprintf(stderr, "Parse error at character offset %d in SQL statement.\n",
-            sqlca.sqlerrd[4]);
+        std::cerr << "Parse error at character offset " << sqlca.sqlerrd[4] << " in SQL statement." << std::endl;
         writer.error("Parse error at character offset %d in SQL statement.", sqlca.sqlerrd[4]);
     }
 
@@ -720,7 +713,7 @@ int DBBase::execute(OutputWriter& writer, const char* sql, ...) {
         case ':':
             char** tmp = (char**)realloc(bindvars, sizeof(char*)*(++cnt));
             if (tmp == nullptr) {
-                fprintf(stderr, "\nMemory allocation error\n");
+                std::cerr << "Memory allocation error" << std::endl;
                 writer.error("Memory allocation error");
                 return -2;
             } else {

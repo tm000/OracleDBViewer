@@ -127,23 +127,30 @@ function App(props) {
       if (!response.ok) {
         setLoading(false);
         if (response.status < 500) {
-          alert(t("An error has occurred") + "\n" + resjson['error']);
+          alert(`${t("An error has occurred")}\n${resjson['error']}`);
         } else {
-          alert(t("An unexpected error has occurred") + "\n" + resjson['error']);
+          alert(`${t("An unexpected error has occurred")}\n${resjson['error']}`);
         }
         return;
       }
 
       if (coldata.length > 0) coldata.splice(0, coldata.length);
+      let colnameSet = new Set();
       for (let col of resjson['header']) {
-        coldata.push({field: col, headerName: col, width: 150});
+        let colname = col;
+        let seq = 1;
+        while (colnameSet.has(colname)) {
+          colname = col + (seq++);
+        }
+        colnameSet.add(colname);
+        coldata.push({field: colname, headerName: colname, width: 150});
       }
       if (rowdata.length > 0) rowdata.splice(0, rowdata.length);
       resjson['body'].forEach((data, i) => {
         let row = {}
         row['id'] = i+1;
         for (let j=0; j<data.length; j++) {
-          row[resjson['header'][j]] = data[j];
+          row[coldata[j].field] = data[j];
         }
         rowdata.push(row);
       });
