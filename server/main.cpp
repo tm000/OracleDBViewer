@@ -106,7 +106,15 @@ int main() {
       }
 
       std::string bodystr(req->getBody(), req->getBodyLength());
-      auto jsonstr = json::parse(bodystr);
+      json jsonstr;
+      try {
+         jsonstr = json::parse(bodystr);
+      } catch (json::parse_error& ex) {
+         std::cerr << "Parse error at byte " << ex.byte << ": " 
+                     << ex.what() << std::endl;
+         res->end(400);
+         return;
+      }
       const std::array<std::string_view, 5> required_keys = {"sql", "username", "password", "dbname", "role"};
       if (!std::all_of(required_keys.begin(), required_keys.end(), [&jsonstr](std::string_view key) { return jsonstr.contains(key); })) {
          fprintf(stderr, "\nInvalid argument\n");
