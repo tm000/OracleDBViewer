@@ -23,6 +23,28 @@
 using json = nlohmann::json;
 using MyMiddlewareFunction = std::function<void(cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db)>;
 
+namespace {
+const char* getEnvOrDefault(const char* name, const char* fallback) {
+    const char* value = std::getenv(name);
+    return value && value[0] != '\0' ? value : fallback;
+}
+
+bool hasNonEmptyStringField(const json& payload, const std::string& key) {
+    if (!payload.contains(key) || !payload[key].is_string()) {
+        return false;
+    }
+    const std::string value = payload[key].get<std::string>();
+    return !value.empty() && value.find_first_not_of(" \t\r\n") != std::string::npos;
+}
+
+void sendJsonError(cex::Response* res, int httpStatus, const std::string& message) {
+    json payload = { {"error", message} };
+    const std::string body = payload.dump();
+    res->set("Content-Type", "application/json; charset=utf-8");
+    res->end(body.c_str(), body.size(), httpStatus);
+}
+}
+
 class MyServer {
    cex::Server svr;
    DBBase db;
@@ -92,16 +114,24 @@ int main() {
 
    app->use("/api", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
       res->setFlags(res->getFlags() | cex::Response::fCompressGZip);
-      // set CORS headers
-      res->set("Access-Control-Allow-Origin", "*");
+
+      const char* allowedOrigin = getEnvOrDefault("ORACLE_DB_VIEWER_ALLOWED_ORIGIN", "*");
+      res->set("Access-Control-Allow-Origin", allowedOrigin);
       res->set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res->set("Access-Control-Allow-Headers", "Content-Type");
+      res->set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res->set("Vary", "Origin");
+
+      if (req->getMethod() == cex::methodOPTIONS) {
+          res->end(200);
+          return;
+      }
+
       next();
    });
 
    app->post("/api", [](cex::Request* req, cex::Response* res, std::function<void()> next, DBBase* db) {
       if (req->getBodyLength() == 0) {
-         res->end(200);
+         sendJsonError(res, 400, "Request body is required.");
          return;
       }
 
@@ -110,15 +140,23 @@ int main() {
       try {
          jsonstr = json::parse(bodystr);
       } catch (json::parse_error& ex) {
-         std::cerr << "Parse error at byte " << ex.byte << ": " 
-                     << ex.what() << std::endl;
-         res->end(400);
+         std::cerr << "Parse error at byte " << ex.byte << ": "
+                   << ex.what() << std::endl;
+         sendJsonError(res, 400, "Malformed JSON payload.");
          return;
       }
+
+      if (!jsonstr.is_object()) {
+         sendJsonError(res, 400, "Request payload must be a JSON object.");
+         return;
+      }
+
       const std::array<std::string_view, 5> required_keys = {"sql", "username", "password", "dbname", "role"};
-      if (!std::all_of(required_keys.begin(), required_keys.end(), [&jsonstr](std::string_view key) { return jsonstr.contains(key); })) {
+      if (!std::all_of(required_keys.begin(), required_keys.end(), [&](std::string_view key) {
+              return hasNonEmptyStringField(jsonstr, std::string(key));
+          })) {
          fprintf(stderr, "\nInvalid argument\n");
-         res->end(400);
+         sendJsonError(res, 400, "Missing or invalid required connection fields.");
          return;
       }
 
@@ -129,7 +167,7 @@ int main() {
                                     jsonstr["role"].get<std::string>().c_str());
       if (ret == 0) {
          ret = db->execute(*writer, jsonstr["sql"].get<std::string>().c_str());
-      };
+      }
       std::string jsonResponse = writer->getJson();
       res->set("Content-Type", "application/json; charset=utf-8");
       res->end(jsonResponse.c_str(), jsonResponse.size(), ret == 0 ? 200 : ret == -1 ? 400 : 500);
@@ -142,44 +180,58 @@ int main() {
 
    // use filesystem middleware
    auto fsOpts = std::make_shared<cex::FilesystemOptions>();
-   fsOpts->rootPath = "/tmp";
+   fsOpts->rootPath = getEnvOrDefault("ORACLE_DB_VIEWER_DOCS_ROOT", ".");
    app->use("/docs", cex::filesystem(fsOpts));
-   
+    
    // use security middleware with some options set
    auto secOpts = std::make_shared<cex::SecurityOptions>();
    secOpts->xFrameAllow = cex::xfFrom;
-   secOpts->xFrameFrom = "my.domain.de";
+   secOpts->xFrameFrom = getEnvOrDefault("ORACLE_DB_VIEWER_FRAME_ORIGIN", "self");
    secOpts->stsMaxAge = 183400;
    secOpts->ieNoOpen = cex::no;
    secOpts->noDNSPrefetch = cex::no;
    app->use(cex::securityHeaders(secOpts));
-   
+    
    // use session middleware
    auto sessionOpts = std::make_shared<cex::SessionOptions>();
    sessionOpts->expires = 60 * 60 * 24 * 3;
    sessionOpts->maxAge = 144;
-   sessionOpts->domain = "my.domain.de";
-   sessionOpts->path = "/somePath";
-   sessionOpts->name = "sessionID";
-   sessionOpts->secure = false;
+   sessionOpts->domain = getEnvOrDefault("ORACLE_DB_VIEWER_SESSION_DOMAIN", "");
+   sessionOpts->path = getEnvOrDefault("ORACLE_DB_VIEWER_SESSION_PATH", "/");
+   sessionOpts->name = getEnvOrDefault("ORACLE_DB_VIEWER_SESSION_NAME", "sessionID");
+   sessionOpts->secure = std::getenv("ORACLE_DB_VIEWER_SESSION_SECURE") != nullptr;
    sessionOpts->httpOnly = true;
    sessionOpts->sameSiteLax = true;
    sessionOpts->sameSiteStrict = true;
    app->use(cex::sessionHandler(sessionOpts));
-   
-   // use basic auth middleware
-   app->use(cex::basicAuth());
-   app->use("/", [](cex::Request* req, cex::Response* res, std::function<void()> next) {
+    
+   // use basic auth middleware only on the application root when explicitly configured
+   const char* basicAuthUser = std::getenv("ORACLE_DB_VIEWER_BASIC_AUTH_USER");
+   const char* basicAuthPassword = std::getenv("ORACLE_DB_VIEWER_BASIC_AUTH_PASSWORD");
+   if (basicAuthUser != nullptr && basicAuthPassword != nullptr) {
+       app->use(cex::basicAuth());
+   }
+   app->use("/", [basicAuthUser, basicAuthPassword](cex::Request* req, cex::Response* res, std::function<void()> next) {
+      if (basicAuthUser != nullptr && basicAuthPassword != nullptr) {
+          const std::string actualUser = req->properties.getString("basicUsername");
+          const std::string actualPassword = req->properties.getString("basicPassword");
+          if (actualUser != basicAuthUser || actualPassword != basicAuthPassword) {
+              res->set("WWW-Authenticate", "Basic realm=\"OracleDBViewer\"");
+              res->end(401);
+              return;
+          }
+      }
       const std::string raw = "default";
       res->end(raw.c_str(), 200);
    });
-  
+   
    // start server
+   const char* host = getEnvOrDefault("ORACLE_DB_VIEWER_HOST", "0.0.0.0");
    const char* portstr = std::getenv("ORACLE_DB_VIEWER_PORT");
    int port = portstr ? std::stoi(portstr) : 5555;
-   std::cout << "Server started at 127.0.0.1:" << port << std::endl;
-
-   app->listen("0.0.0.0", port, true);
+   std::cout << "Server started at " << host << ":" << port << std::endl;
+ 
+   app->listen(host, port, true);
 
    return 0;   
 }
